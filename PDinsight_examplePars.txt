@@ -1,0 +1,88 @@
+## Parameter file belonging to PDinsight.py
+## This script computes the requirements for obtaining a given target effective wall permeability (Peff) through diffusive symplastic transport and/or values of Peff given all parameters. 
+## All output is written to files, tsv (tab separated values) format, with names indicated with the respective modes/switches.
+## The first (or sometimes second/..) line of each output file contains the column headers. 
+## This script belongs to the manuscript .... Deinum et al 2019, ... . When using this script, please cite Deinum et al 2019. 
+## In this script, PDs are modeled as a set of concentric cylinders. The space available for symplastic transport, the cytoplasmic sleeve, is confined between desmotubule (DT, radius Rdt) and outer radius (Rn, neck radius and/or Rc, central radius). 
+### If Rn == Rc, as is the case in most computations in this script, the parameter Lneck (length of the neck region) does not have any effect.
+### We found that Fih, a correction factor for the fact that the cell wall is only permeable at discrete spots (the PDs), does not depend on Lcell, the cell length. This parameter, therefore, also has no effect.
+
+## Script usage: python PDinsight.py [PARFILE]
+## where PARFILE is the name of the parameter file. If no name is given, the script looks for "parameters.txt" in the current directory.
+## Alternatively (linux), make the script executable and type ./PDinsight.py [PARFILE]
+## After reading, all parameters are printed to "allParameters.txt"
+
+## switches for computing. Choose between 1 ("True") and 0 ("False").
+compSubNano 0 # switch: compare with sub-nano channel model; conversion factors are written to file "densityConversionFactorTable.dat"; these are only valid for sufficiently narrow channels. 
+computeClusterIncrease 0 # switch: consider (repeated) twinning from the starting densities in densList rather than homogeneous (high) densities. Useful for computing requirements for a sudden increase of Peff. ; only affects computeAperture and computeVals
+doNotCombine 1 # switch: affects computeUnitVals and computeVals. Instead of looping over all combinations, equal length lists (or single values) of the applicable variables are required, and values are computed per i-th set of parameters.
+asymmetricPDs 1  # Allow for different Lneck and Rn on either side of the PD. Required inputs: Rn1List, Rn2List, Lneck1List,Lneck2List (all equal length). Currenly only works for computeVals and computeUnitVals with doNotCombine==True
+
+
+# Modes for computing tables
+computeDens 0 # switch: calculate required densities for Peff targets in peList and alpha_bar values in xMaxList ; output is written to file "requiredDensityTable.dat"
+computeAperture 0 ## calculate required alpha_bar and Rn values for Peff targets in peList and densities in densList; if computeClusterIncrease == True: calculate required alpha_bar and Rn values for Peff targets in peList, starting densities in densList and the n-fold increase in clusters from twinningList ; output is written to file "requiredApertureTable.dat"
+computeVals 1 # calculate Peff values from all given combinations of variable parameters: densList x xMaxList [[ x RcList]] x ....
+computeUnitVals 1 # calculate unit permeability (Punit) values: for a density of 1 PD/um2, not considering inhomogeneity factor Fih. Calculate Punit from all given combinations of variable parameters: RnList x RdtList x LpdList [x RcList (insofar Rn <= Rc)] ; currently incompatible with compSubNano
+sensitivityAnalysis 0 # numerically compute normalized partial derivatives of Peff and other quantities (to alpha=x, Rn, Rc, Rdt, Lpd, Lneck, Rho=dens ) around a starting point 
+
+# Modes for computing graphs (high resolution tables that can be plotted with a graphics program of choice)
+computeRnDensityGraph 0 # switch: compute Rn, rho graphs that yield target Peff in peList. Rn is increased by steps of xStep; Rn runs from Rdt+xStart to Rdt + xMax; incompatible with compSubNano, because correction factors can't be used for large Rn
+
+# Modes for computing tables with inhomogeneity correction factor Fih
+computeFih_subNano 0 # switch: compute Fih values for default and sub-nano channel model; results are written to files "Fih_subNano_densXX_lXX.dat", where XX are the respective parameter values.
+computeFih_pitField_xMax 0 # switch: compute Fih for pit fields as a function of maximum particle radius (xMax / alpha_bar) ; results are written to files Fih_xMax_pit_RnXX_dXX_lXX.dat", where XX are the respective parameter values.
+computeFih_pitField_dens 0 # switch: compute Fih for pit fields as a function of PD density (rho); results are written to files Fih_dens_pit_RnXX_dXX_lXX.dat", where XX are the respective parameter values.  
+# Related to Fih: compute tables with impact of (repeated) twinning on total Peff
+computeTwinning 0 # switch: compute impact on Peff due to twinning, starting from isolated PDs that follow the distribution of parameter grid.; results are written to files "twinning_pit_RnXX_dXX_lXX.dat", where XX are the respective parameter values.   
+
+## Output options
+outputType tsv # choose between tsv and csv
+
+## Shared Parameters
+fileTag myFileIdentifier # if set, File name is appended _fileTag (before file extension) 
+## length for most parameters in nm, except for diff, dens/pdDens and Lcell which use um
+## internally, all lengths are in nm, which are converted back to um in the output where appropriate
+x   0.5 # particle radius (nm) # x = 0.5 nm is used for carboxyfluorescein. This parametrs is called alpha in manuscript
+Lpd 100. # PD length. Usually similar to cell wall thickness. 
+diff   162 # particle diffusion constant (in um2/s) 162 is used for carboxyfluorescein (following Rutschow et al 2011)
+
+Lneck 25. # neck region length. Only affects results for channels with a dilated central region (Rc > Rn); default 25; reasonable range probably 20 - 30 nm; necked PDs are mostly/only observed in thicker cell walls, i.e., Lpd >= 200 nm; has no effect in modes computeDens and computeAperture. 
+Rdt   8. # Desmotubule (DT) radius; default: 8 nm; typical range: 7.5 - 9.5 nm
+Lcell 10 # cell length (in um) ; does not affect Peff, Fih, etc. The model is only valid if Lcell > spacing between PDs (or pit fields); default: 10 um.
+grid triangular # distribution of PDs on regular grid. Choose from: triangular, square, hexagonal or hex, and random; default triangular
+gridList triangular square hexagonal random # distribution of PDs on regular grid. Choose from: triangular, square, hexagonal or hex, and random; default triangular ; only used in computeFih_subNano; if empty, gridList is set to [grid]
+dPit 120. # centre-to-centre distance between PDs within a pit field. Only required when exploring twinning/clustering; default 120 nm. 
+
+## Shared parameter lists
+peList 6 8.5  # list of target permeabilities (Peff) in um/s
+xMaxList  2.   3.5  4.   # list of maximum particle sizes (also alpha_bar): corresponding densities will be computed for obtaining target permeabilities
+densList 10 9 8  # list of target densities (in PDs/um2): corresponding xMax and Rn (neck radius) values will be computed for obtaining target permeabilities
+twinningList 1 # fold-increases for density through (repeated) twinning. Only used if computeClusterIncrease == True. The list should include 1 to compute the reference values before twinning ; So far  only used in computing required xMax / Rn given (starting) densities in densList. Allowed numbers: 1,2,3,4,5,6,7,12,19. 
+
+## parameters used for computeVals and computeUnitVals
+RcList 17.5 20 18 # varying central region radius Rc; so far, only used for computeVals and computeUnitVals; if Rc < Rn, only a single value is computed for Rc == Rn, regardless of number of Rc values < Rn. ; default: 0, i.e., straight channels. 
+LneckList 30 32 21 # varying neck length Lneck; so far, only used for computeVals and computeUnitVals
+Lneck2List 31 33 23 # varying neck length Lneck2; only used if asymmetricPD == True; so far, only used for computeVals and computeUnitVals
+
+## parameters used for computeUnitVals
+RdtList 8   # varying desmotubule radius Rdt; so far, only used for computeUnitVals
+
+## parameters used in computing correction factor Fih / twinning effect; also used for computeVals 
+pitList 1  ## Number of PDs per pit field. Allowed numbers: 1,2,3,4,5,6,7,12,19. ; Used for computing Fih in pit fields and twinning effect, and computeVals.  
+dPitList   100 ## Center-to-center distance between PDs within pit field
+LpdList 100. 120. 300. # PD length ; the list is only used for computing Fih in pit fields and twinning effect.
+  pitDens 2. # pit density; only used for computing Fih in pit fields as a function of xMax (computeFih_pitField_xMax)
+RnList 15 17.5 12.  # Neck radius Rn ; the list is only used for computing Fih in pit fields and twinning effect.; also used for computeUnitVals
+Rn2List 14 16.5 14.  # Neck radius Rn2 ; only used if asymmetricPD == True; the list is only used for computing Fih in pit fields and twinning effect.; also used for computeUnitVals
+
+## parameters used in computing Rn, Density graphs
+xStep   0.1 # increment of xMax = alpha_bar; Rn is incremented with 2*xStep
+xStart   1. # starting value of xMax
+xMax   36.  # final value of xMax. Rn = Rdt + 2*xMax
+
+## numerical parameters 
+dInc   0.1 # step size for finding target density (followed by linear interpolation)
+xInc   0.01 # step size for finding target PD aperture (alpha_bar, Rn) (followed by linear interpolation)
+sensIncList 0.0001 # step size list for parameters in sensitivity analysis. Multiple values may be tried to test for convergence.
+
