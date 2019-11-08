@@ -1,0 +1,135 @@
+\documentclass[a4paper,12pt]{article}
+\author{Eva Deinum}
+\title{PDinsight user manual}
+\date{\today}
+\usepackage{natbib}
+\newcommand{\SEL}{\bar{\alpha}}
+\newcommand{\patchy}{f_{ih}}
+\usepackage{xcolor}
+\definecolor{eLifeMediumGrey}{HTML}{000000}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+\begin{document}
+\maketitle
+
+\section{General information}
+PDinsight is a python program for predicting tissue (cell-cell) level effective permeabilities for symplasmic transport from ultrastructural (EM) data. A typical use would be to compare these values to tissue level assessments of effective permeabilities based on photobleaching / photoactivation of carboxyfluorecein (CF) \citep{Rutschow.pp11} or suitable GFP derivates (e.g., DRONPA-s \citep{Gerlitz.pj18}). The first version of PDinsight was released along with ``From plasmodesma geometry to effective symplasmic permeability through biophysical modelling'', Deinum et al. eLife 2019. Mathematical notation in this manual follows \citep{Deinum.e19}. If using PDinsight in a publication, please cite this manuscript.
+
+PDinsight is written in python 3. If available, it uses the numpy module, but does not strictly depend upon that. The program has different modes for computing the parameter requirements for a given effective symplasmic wall permeability $P(\alpha)$ for particles of radius $\alpha$ and related quantities. The different modes and the relevant parameters are controlled from a parameter file (default: parameters.txt). A graphical user interface (GUI) is provided to help the user create parameter files and run PDinsight. The GUI is written using TKinter, which is included in standard installation of python.
+
+For electron microscopists, who typically  have access to many ultrastructural parameters, but often do not know $P(\alpha)$, the mode \texttt{computeVals} will be useful. This computes the expected $P(\alpha)$ values when taking all parameters at face value. Comparison with the sub-nano channel model is possible. In principle, all model parameters must be defined, but missing parameters may be explored using lists of possible values or left at a default (e.g., cell length $L$ and a triangular distribution of PDs), as these have little influence on $P(\alpha)$. If estimates of PD density and distribution are missing, the mode \texttt{computeUnitVals}, which computes $\Pi(\alpha)$ (a ``unit permeability'', i.e., assuming a density of 1 PD/$\mu$m$^2$ and $\patchy=1$), could be useful. In this mode, comparison with the sub-nano channel is impossible. 
+
+In tissue level experiments, $P(\alpha)$ is typically measured, but not all ultrastructural parameters will be known. It is likely that PD density $\rho$ and radius ($R_n$, assuming straight channels) are poorly known. In this case, mode \texttt{computeRnDensityGraph} will be useful, or a combination of modes \texttt{computeDens} and \texttt{computeAperture} and a number of guesses for $R_n$/$\SEL$ (maximum $\alpha$ that would fit through the channel) or $\rho$, respectively. Additional poorly known parameters can be explored as suggested above. If uncertain, it is strongly advised to explore PD length $l$ ($\approx$cell wall thickness). For thick cell walls ($l \ge 200$ nm), it may be worth exploring the effects of increased central radius ($R_c>R_n$). This is currently only possible in modes \texttt{computeVals} and \texttt{computeUnitVals}.
+
+PDinsight is published under the GNU general public licence v3.0. 
+
+\section{Modes}
+\paragraph{Major modes} The core of PDinsight is computing effective permeabilities ($P(\alpha)$) for symplasmic transport based on all model parameters mentioned in the manuscript. This is in mode \texttt{computeVals}. The same computations are used in other modes, which compute the requirements for obtaining a given target value (or set of values) of $P(\alpha)$. In mode \texttt{computeDens}, required densities ($\rho$) are computed for given values of maximum particle size $\SEL$ (and other parameters). In mode \texttt{computeAperture}, required apertures, given as $\SEL$ as well as neck radius $R_n$, are computed for given values of $\rho$ (and other parameters). In mode \texttt{computeRnDensityGraph}, $R_n,\rho$ curves are computed that together yield a target $P(\alpha)$. The corresponding values of $\SEL$ are also reported. These curves can be visualized using any plotting program. Mode \texttt{sensitivityAnalysis} computes so-called elasticities (normalized partial derivatives) around a given set (or sets) of parameters. These elasticities tell how sensitive calculated values of $P(\alpha),\ \Pi(\alpha)$ and constituents like $\patchy$ (a correction factor for the fact that the cell wall is only symplasmically permeable where the PDs are) are on the parameters involved. 
+
+\paragraph{Auxillary modes} In computing $P(\alpha)$, correction factor $\patchy$ is automatically included. For specific cases such as modelling studies, however, it may be useful to calculate $\patchy$ separately. For this purpose, several modes exist for  exploring inhomogeneity factor $\patchy$: \texttt{computeFih\_subNano} (function of $\SEL$; also output values for sub-nano model), \texttt{computeFih\_pitField\_dens} (function of $\rho$), \texttt{computeFih\_pitField\_xMax} (function of $\SEL$) and \texttt{computeTwinning} (function of $\rho_{pits}$, cluster density). 
+
+
+By default, computations are performed for the unobstructed sleeve model \citep{Deinum.e19}. Most computations can also be performed for the sub-nano channel model \cite{Liesche.fps13,Comtet.pp17}. Using switch \texttt{compSubNano}, values for the sub-nano model are also computed. 
+
+\section{Graphical user interface}
+The GUI to PDinsight is written to facilitate the creation of parameter files and also has a button to run PDinsight directly based on the parameters displayed. In contrast to the generic parameter file, the GUI only shows fields for parameters that are actually used in a specific run mode. The first step of using the gui is to select the run mode (choose from: \texttt{computeVals}, \texttt{computeUnitVals}, \texttt{computeDens}, \texttt{computeAperture},  \texttt{computeRnDensityGraph} and \texttt{sensitivityAnalysis}), followed by ``load default parameters''. This overwrites any user input from previous modes. All required parameters are shown as text entry fields, with radio buttons for the relevant options. Basic validation occurs on the fly (valid input type, etc). When done, click ``Run PDinsight'' to write a parameter file and run the program or ``Export parameter file'' to write a parameter file only. Note that switching modes requires clicking ``load default parameters'', i.e., a fresh start. 
+
+Additional information can be obtained by clicking the ``Info'' button and, for certain parameters, clicking on the parameter name. If additional information is available, the mouse cursor changes into a question mark.
+
+\section{Command line usage}
+\paragraph{Command line usage} (linux): python PDinsight\_vXX.py PARAMETERFILE. \\
+(windows): first open a command prompt window (e.g., by searching for ``cmd'' in the search bar) and go to the directory where PDinsight is located. Then type: py PDinsight\_vXX.py PARAMETERFILE
+
+Using the GUI from the command line (linux): python PDinsightGUI\_vYY.py or (windows): py PDinsightGUI\_vYY.py 
+The correct version of PDinsight\_vXX.py should also be available in the current directory.
+
+In the above, XX and YY should be replaced by the respective version numbers. 
+
+\section{Output files}
+By default, all outputs are tab separated files (.tsv). This can be switched to csv using the option ``outputType'' (options ``tsv'' and ``csv'').
+
+\section{Program maintenance}
+The latest version of PDinsight + documentation can be downloaded from Github: ....
+It is recommended to update both the core (PDinsight\_vXX.py) and the GUI (PDinsightGUI\_vYY.py) simultaneously. If, for whatever reason you would like to update only the core, please note that you have to adapt the following line in the GUI by hand:
+
+\texttt{import PDinsight\_v1XX as pd}
+
+\section{Model parameters}
+
+\begin{figure}
+\includegraphics[width=\textwidth]{pd_cylinders_combi4.pdf}
+\caption{Overview of single channel PD parameters. Figure from \citet{Deinum.e19}. A: structural parameters as used for input (PD dimensions). B-D: Cross sections showing how internally, available volumes are adjusted for steric hindrance (B,C) and additional (hydrodynamic) hindrance effects (D) depending on particle size $\alpha$. A particle with radius $\SEL$ would touch both channel walls in the narrowest (neck) region.}
+\label{fig:layout}
+\end{figure}
+
+See \autoref{fig:layout} for an overview of single channel PD parameters and PD geometry. See \autoref{tab:pars} for a list of model parameters (PDinsight names) and the corresponding mathematical symbols used in \citet{Deinum.e19}. See \autoref{tab:modes} for available modes and \autoref{tab:options} for available options.
+
+\begin{table}
+\caption{List of parameters and mathematical symbols \citep{Deinum.e19}. [List] indicates that (depending on mode), a list of values may be entered.}
+\label{tab:pars}
+\begin{tabular}{l l l p{0.5\textwidth}}
+PDinsight&& User unit & Description\\
+\hline
+x&$\alpha$ & nm &Particle radius \\
+xMax &$\SEL$ & nm &Maximum particle radius that fits through a (model) PD \\
+diff&$D$ &  $\mu$m$^2$/s &\emph{Particle size dependent} diffusion constant\\
+Fih&$\patchy$ & - & Correction factor for inhomogeneous wall permeability ($0\leq\patchy\leq1$)\\
+Lneck[List], Lneck2[List]&$l_n$ & nm& Neck length\\
+Lpd&$l$ & nm &Total PD length\\
+Lcell&$L$ & $\mu$m &Cell length\\
+Rc[List]&$R_c$ &  nm & Central region radius\\
+Rdt[List]&$R_{dt}$ &  nm & DT radius\\
+Rn[List], Rn2[List]&$R_n$ &  nm & Neck radius\\
+dens[List]&$\rho$ & PDs /$\mu$m$^2$ & PD density\\
+pit[List]&$p$ & - & number of PDs per cluster (``pit field''). Options: 1, 2, 3, 4, 5, 6, 7, 12, 19.\\
+dPit[List]&$p$ & nm & nearest neighbour distance between PDs inside pit field. \\ 
+Peff&$P(\alpha)$ &$\mu$m/s& symplasmic permeability (for particles of size $\alpha$) of the entire cell wall\\
+Punit&$\Pi(\alpha)$ &$\mu$m/s& symplasmic permeability (for particles of size $\alpha$) of a single PD per unit of cell wall surface, without correction factor $\patchy$ ($\Pi(\alpha) = \frac{P(\alpha)}{\patchy\rho}$).\\
+grid[List]&&&PDs (or pit fields) are assumed to spaced on a grid. Options: ``triangular'', ``square'', ``hexagonal'' or ``hex'' and ``random''.\\
+fileTag &&& Prefix for all output files. \\
+\end{tabular}
+\end{table}
+
+\begin{table}
+\caption{List of modes. Modes indicated with * are only available through the command line interface.}
+\label{tab:modes}
+\begin{tabular}{l  p{0.7\textwidth}}
+Name & Description\\
+\hline
+computeRnDensityGraph & Compute a graph of $R_n$, $\rho$ pairs that matches a given $P(\alpha)$ given structural parameters etc.\\
+computeDens & Compute required density $\rho$ given a (list of) $\SEL$ values.\\
+computeAperture & Compute required PD aperture (and related $\SEL$) given a (list of) $\rho$ values.\\
+computeVals & Compute  $P(\alpha)$ given structural parameters etc.\\
+computeUnitVals & Compute $\Pi(\alpha)$ given single PD structural parameters only.\\
+sensitivityAnalysis & Compute elasticities (normalized partial derivatives) around a given set (or sets) of parameters.\\
+*computeFih\_subNano & Compute $\patchy$, including comparison with sub-nano channel model, for $\SEL\in[2\alpha,50]$ nm.\\
+*computeFih\_pitField\_xMax & Compute $\patchy$, possibly for multiple values of $p$, for $\SEL\in[2\alpha,50]$ nm.\\
+*computeFih\_pitField\_dens& Compute $\patchy$, possibly for multiple values of $p$, for $\rho\in[0.1,30]$ PDs/$\mu$m$^2$.\\
+*computeTwinning&Compute $\patchy$, possibly for multiple values of $p$, where the total density is $\rho p$ and $\rho\in[0.1,30]$ PDs/$\mu$m$^2$.\\
+\end{tabular}
+\end{table}
+
+\begin{table}
+\caption{List of options}
+\label{tab:options}
+\begin{tabular}{l  p{0.7\textwidth}}
+Name & Description\\
+\hline
+compSubNano & Compare with sub-nano channel model.\\
+computeClusterIncrease & If true, dens indicates cluster density  rather than total density. If false, dens indicates total density.\\
+printRn & (Additionally) include $R_n$ in output. For some modes, $R_n$ is always printed.\\
+doNotCombine & If true, ``list'' parameters must contain either 1 or $n$ entries, where $n$ is the same for all. PDinsight uses the $i^{th}$ entry (or single value) of each list as a set. Useful for evaluating raw data. If false, PDinsight evaluates all possible combinations of entries in all lists. \\
+asymmetricPDs & Allow for different neck dimensions on either side of the PD. If true, Rn2[List] and Lneck2[list] are required. \\
+\end{tabular}
+\end{table}
+
+
+
+\bibliographystyle{vancouver-elife}
+\bibliography{singleChannel2018}
+
+\end{document}
+
+
+
