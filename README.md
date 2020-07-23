@@ -1,2 +1,2 @@
 # PDinsight
-Program for computing effective wall permeabilites for symplasmic transport
+Program for computing effective wall permeabilities for symplasmic transport
