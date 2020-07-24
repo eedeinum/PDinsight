@@ -98,10 +98,14 @@ class PDgui(tk.Frame):
       try:
           for p in self.parBoxes:
             self.parBoxes[p][0].destroy()
-            self.parBoxes[p][2].destroy()
+            if len(self.parBoxes[p]) == 4:
+                self.parBoxes[p][3].destroy()
+            else:
+                self.parBoxes[p][2].destroy()
           self.parLabel.destroy()
           self.parLabel2.destroy()
-      except:
+      except Exception as err:
+          #print (err)
           pass
       self.parLabel = tk.Label(self,text="Required parameters:")
       self.parLabel.grid(row=10,column=1,sticky="W",columnspan=1,padx=5,pady=1)
