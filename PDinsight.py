@@ -301,7 +301,7 @@ def main(parfile):
       fName="requiredDensityTable_"+pars.fileTag+"."+pars.fileExt
     outfile=open(fName, 'w')
     sys.stdout = outfile
-    printTargetDensitiesStraightPD(pars.Rdt,pars.x,pars.xMaxList,pars.peList,pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.dInc,cfDict)
+    printTargetDensitiesStraightPD(pars.Rdt,pars.x,pars.xMaxList,pars.peList,pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.dInc,cfDict,pars.colSep)
     outfile.close()
     sys.stdout = sys.__stdout__
 
@@ -313,11 +313,11 @@ def main(parfile):
     sys.stdout = outfile
     if pars.computeClusterIncrease:
       ## calculate required alpha_bar and Rn values for Peff targets in peList, starting densities in densList and the n-fold increase in clusters from twinningList
-      printTargetAperturesStraightPD_twinning(pars.Rdt,pars.x,pars.densList,pars.peList,pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.xInc,pars.twinningList,pars.dPit,pars.compSubNano)
+      printTargetAperturesStraightPD_twinning(pars.Rdt,pars.x,pars.densList,pars.peList,pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.xInc,pars.twinningList,pars.dPit,pars.compSubNano,pars.colSep)
 
     else:
       ## calculate required alpha_bar and Rn values for Peff targets in peList and densities in densList
-      printTargetAperturesStraightPD(pars.Rdt,pars.x,pars.densList,pars.peList,pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.xInc,pars.compSubNano)
+      printTargetAperturesStraightPD(pars.Rdt,pars.x,pars.densList,pars.peList,pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.xInc,pars.compSubNano,pars.colSep)
     outfile.close()
     sys.stdout = sys.__stdout__
 
@@ -334,7 +334,7 @@ def main(parfile):
         fName="Rn_dens_Peff"+str(pars.peList[i])+"_l"+str(int(pars.Lpd))+"_"+pars.fileTag+"."+pars.fileExt
       outfile=open(fName, 'w')
       sys.stdout = outfile
-      printTargetDensitiesStraightPD(pars.Rdt,pars.x,arange(pars.xStart,pars.xMax,pars.xStep),[pars.peList[i]],pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.dInc,{},True,True) # 2x True at the end: no blank lines within file for easier plotting ; include Rn in output.
+      printTargetDensitiesStraightPD(pars.Rdt,pars.x,arange(pars.xStart,pars.xMax,pars.xStep),[pars.peList[i]],pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.dInc,{},pars.colSep,True,True) # 2x True at the end: no blank lines within file for easier plotting ; include Rn in output.
       outfile.close()
       sys.stdout = sys.__stdout__
 
@@ -1112,18 +1112,18 @@ def  computePunitValues(pars):
   sys.stdout = sys.__stdout__
   return
 
-def  printTargetDensitiesStraightPD(Rdt,x,xMaxList,peList,diff,Lpd,Lcell,grid,Lneck,dInc,cfDict,compact=False,printRn=False):
+def  printTargetDensitiesStraightPD(Rdt,x,xMaxList,peList,diff,Lpd,Lcell,grid,Lneck,dInc,cfDict,colSep,compact=False,printRn=False):
   print("## Required PD densities for target Peff, given alpha_bar")
   if cfDict:
     if printRn:
-      print("alpha"+pars.colSep+"alpha_bar"+pars.colSep+"Rn"+pars.colSep+"Peff"+pars.colSep+"Rho_default"+pars.colSep+"deviation_from_Peff"+pars.colSep+"Rho_sub-nano"+pars.colSep+"Rho_sub-nano_neckOnly"+pars.colSep+"Rho_spoke_entrance")
+      print("alpha"+colSep+"alpha_bar"+colSep+"Rn"+colSep+"Peff"+colSep+"Rho_default"+colSep+"deviation_from_Peff"+colSep+"Rho_sub-nano"+colSep+"Rho_sub-nano_neckOnly"+colSep+"Rho_spoke_entrance")
     else:
-      print("alpha"+pars.colSep+"alpha_bar"+pars.colSep+"Peff"+pars.colSep+"Rho_default"+pars.colSep+"deviation_from_Peff"+pars.colSep+"Rho_sub-nano"+pars.colSep+"Rho_sub-nano_neckOnly"+pars.colSep+"Rho_spoke_entrance")
+      print("alpha"+colSep+"alpha_bar"+colSep+"Peff"+colSep+"Rho_default"+colSep+"deviation_from_Peff"+colSep+"Rho_sub-nano"+colSep+"Rho_sub-nano_neckOnly"+colSep+"Rho_spoke_entrance")
   else:
     if printRn:
-      print("alpha"+pars.colSep+"alpha_bar"+pars.colSep+"Rn"+pars.colSep+"Peff"+pars.colSep+"Rho_default"+pars.colSep+"deviation_from_Peff")
+      print("alpha"+colSep+"alpha_bar"+colSep+"Rn"+colSep+"Peff"+colSep+"Rho_default"+colSep+"deviation_from_Peff")
     else:
-      print("alpha"+pars.colSep+"alpha_bar"+pars.colSep+"Peff"+pars.colSep+"Rho_default"+pars.colSep+"deviation_from_Peff")
+      print("alpha"+colSep+"alpha_bar"+colSep+"Peff"+colSep+"Rho_default"+colSep+"deviation_from_Peff")
 
   ab=[0,0]
   getAB(ab,grid)
@@ -1141,24 +1141,24 @@ def  printTargetDensitiesStraightPD(Rdt,x,xMaxList,peList,diff,Lpd,Lcell,grid,Ln
       peBest=Peff(x,xMax*2.+Rdt,diff,Lpd,Lcell,ddBest,ab[0],ab[1],Rdt,xMax*2.+Rdt,Lneck)
       if cfDict:
         if printRn:
-          print(pars.colSep.join(str(s) for s in [x, xMax, 2.*xMax +Rdt, peTarget, ddBest*1e6,  peBest-peTarget]+[ddBest*i  *1e6 for i in cfDict[xMax]]))
+          print(colSep.join(str(s) for s in [x, xMax, 2.*xMax +Rdt, peTarget, ddBest*1e6,  peBest-peTarget]+[ddBest*i  *1e6 for i in cfDict[xMax]]))
         else:
-          print(pars.colSep.join(str(s) for s in [x, xMax, peTarget, ddBest*1e6,  peBest-peTarget]+[ddBest*i  *1e6 for i in cfDict[xMax]]))
+          print(colSep.join(str(s) for s in [x, xMax, peTarget, ddBest*1e6,  peBest-peTarget]+[ddBest*i  *1e6 for i in cfDict[xMax]]))
       else:
         if printRn:
-          print(pars.colSep.join(str(s) for s in [x, xMax, 2.*xMax+Rdt, peTarget, ddBest*1e6,  peBest-peTarget]))
+          print(colSep.join(str(s) for s in [x, xMax, 2.*xMax+Rdt, peTarget, ddBest*1e6,  peBest-peTarget]))
         else:
-          print(pars.colSep.join(str(s) for s in [x, xMax, peTarget, ddBest*1e6,  peBest-peTarget]))
+          print(colSep.join(str(s) for s in [x, xMax, peTarget, ddBest*1e6,  peBest-peTarget]))
     if not compact:
       print("")
   return
 
-def  printTargetAperturesStraightPD(Rdt,x,densList,peList,diff,Lpd,Lcell,grid,Lneck,xInc,compSubNano):
+def  printTargetAperturesStraightPD(Rdt,x,densList,peList,diff,Lpd,Lcell,grid,Lneck,xInc,compSubNano,colSep):
   print("## Required alpha_bar and corresponding Rn for target Peff, given PD density")
   if compSubNano:
-    print("alpha"+pars.colSep+"Rho"+pars.colSep+"Peff"+pars.colSep+"alpha_bar_default"+pars.colSep+"Rn_default"+pars.colSep+"deviation_from_Peff"+pars.colSep+"alpha_bar_sub-nano"+pars.colSep+"Rn_sub-nano_naive"+pars.colSep+"Rn_sub-nano_spacers1nm"+pars.colSep+"Rn_sub-nano_spacers0nm") 
+    print("alpha"+colSep+"Rho"+colSep+"Peff"+colSep+"alpha_bar_default"+colSep+"Rn_default"+colSep+"deviation_from_Peff"+colSep+"alpha_bar_sub-nano"+colSep+"Rn_sub-nano_naive"+colSep+"Rn_sub-nano_spacers1nm"+colSep+"Rn_sub-nano_spacers0nm") 
   else:
-    print("alpha"+pars.colSep+"Rho"+pars.colSep+"Peff"+pars.colSep+"alpha_bar_default"+pars.colSep+"Rn_default"+pars.colSep+"deviation_from_Peff")
+    print("alpha"+colSep+"Rho"+colSep+"Peff"+colSep+"alpha_bar_default"+colSep+"Rn_default"+colSep+"deviation_from_Peff")
   ab=[0,0]
   getAB(ab,grid)
   xStart = x+xInc
@@ -1186,16 +1186,16 @@ def  printTargetAperturesStraightPD(Rdt,x,densList,peList,diff,Lpd,Lcell,grid,Ln
         xSNbest=linearInterpolate(peTarget,xSNprev, xSN,peSNprev,peSN) 
         outList.append(xSNbest)
         outList += getRn_multiCyl(xSNbest,Rdt,9)
-      print(pars.colSep.join([str(s) for s in outList]))
+      print(colSep.join([str(s) for s in outList]))
     print("")
   return 
 
-def  printTargetAperturesStraightPD_twinning(Rdt,x,densList,peList,diff,Lpd,Lcell,grid,Lneck,xInc,twinningList,dPit,compSubNano):
+def  printTargetAperturesStraightPD_twinning(Rdt,x,densList,peList,diff,Lpd,Lcell,grid,Lneck,xInc,twinningList,dPit,compSubNano,colSep):
   print("## Required alpha_bar and corresponding Rn for target Peff, given PD density")
   if compSubNano:
-    print("alpha"+pars.colSep+"Rho"+pars.colSep+"n_cluster"+pars.colSep+"Peff"+pars.colSep+"alpha_bar_default"+pars.colSep+"Rn_default"+pars.colSep+"deviation_from_Peff"+pars.colSep+"alpha_bar_sub-nano"+pars.colSep+"Rn_sub-nano_naive"+pars.colSep+"Rn_sub-nano_spacers1nm"+pars.colSep+"Rn_sub-nano_spacers0nm") 
+    print("alpha"+colSep+"Rho"+colSep+"n_cluster"+colSep+"Peff"+colSep+"alpha_bar_default"+colSep+"Rn_default"+colSep+"deviation_from_Peff"+colSep+"alpha_bar_sub-nano"+colSep+"Rn_sub-nano_naive"+colSep+"Rn_sub-nano_spacers1nm"+colSep+"Rn_sub-nano_spacers0nm") 
   else:
-    print("alpha"+pars.colSep+"Rho"+pars.colSep+"n_cluster"+pars.colSep+"Peff"+pars.colSep+"alpha_bar_default"+pars.colSep+"Rn_default"+pars.colSep+"deviation_from_Peff")
+    print("alpha"+colSep+"Rho"+colSep+"n_cluster"+colSep+"Peff"+colSep+"alpha_bar_default"+colSep+"Rn_default"+colSep+"deviation_from_Peff")
   ab=[0,0]
   getAB(ab,grid)
   distDict=getDistDict()
@@ -1227,7 +1227,7 @@ def  printTargetAperturesStraightPD_twinning(Rdt,x,densList,peList,diff,Lpd,Lcel
               xSNbest=linearInterpolate(peTarget,xSNprev, xSN,peSNprev,peSN) 
               outList.append(xSNbest)
               outList += getRn_multiCyl(xSNbest,Rdt,9)
-            print(pars.colSep.join([str(s) for s in outList]))
+            print(colSep.join([str(s) for s in outList]))
 
           Rpit = xMax*2.+Rdt + distDict[pj]*dPit
           xMax = max(xMax -1,xStart)
@@ -1267,7 +1267,7 @@ def  printTargetAperturesStraightPD_twinning(Rdt,x,densList,peList,diff,Lpd,Lcel
               xSNbest=linearInterpolate(peTarget,xSNprev, xSN,peSNprev,peSN) 
               outList.append(xSNbest)
             outList += getRn_multiCyl(xSNbest,Rdt,9)
-          print(pars.colSep.join([str(s) for s in outList]))
+          print(colSep.join([str(s) for s in outList]))
     print("")
   return 
 
