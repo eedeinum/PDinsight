@@ -7,6 +7,7 @@ from copy import deepcopy
 from collections import defaultdict
 
 VERY_MUCH = sys.maxsize
+VERSION = "1.0.2"
 
 try:
   from numpy import arange
@@ -29,6 +30,7 @@ except:
 ## after reading, all parameters are printed to "allParameters.txt"  or fileTag.pars, if fileTag is set
 
 class Parameters():
+  versionNumber=VERSION
   parExtraInfo = defaultdict(lambda:None)
   info = { "grid": 'Available options: "triangular", "square", "hexagonal" or "hex" and "random"', "gridList": 'Available options: "triangular", "square", "hexagonal" or "hex" and "random"', "pitList": "Available options: 1, 2, 3, 4, 5, 6, 7, 12, 19", "twinningList": "Available options: 1, 2, 3, 4, 5, 6, 7, 12, 19", "xMax" : "Maximum particle size: xMax = (Rn - Rdt)/ 2 (unobstructed sleeve model). In other words: Rn = Rdt + 2*xMax.", "xMaxList" : "Maximum particle size: xMax = (Rn - Rdt)/ 2 (unobstructed sleeve model). In other words: Rn = Rdt + 2*xMax.", "Rc": "If Rc < Rn, a straight channel with radius Rn is assumed. Use 0 to only study straight channels." , "RcList": "If Rc < Rn, a straight channel with radius Rn is assumed. Use 0 to only study straight channels." }
   for i in info.keys():

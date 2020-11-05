@@ -393,12 +393,13 @@ Note that the clicking buttons only works if all dialog windows are closed.")
     self.listPars= self.defaultPars.listFloats + list(self.defaultPars.listFactorFloats.keys()) + self.defaultPars.listStrings
     self.parCats = ["Particle","Channel","Distribution","Misc"]
     self.fullParLists = {"Particle": ["x","diff"], "Channel": ["Rn","RnList","Rn2List","Rdt","RdtList","Rc","RcList","Lneck","LneckList","Lneck2List","Lpd","LpdList","xMax","xMaxList"], "Distribution": ["densList","grid","gridList","dPit","dPitList","pitList","twinningList"], }
+    master.title("PD insight version "+self.defaultPars.versionNumber)
     self.pack()
     self.fill()
 
 def main():
   gui = tk.Tk()
-  gui.title("PD insight version 13")
+  gui.title("PD insight version ")
   guiRun  = PDgui(master=gui)
   guiRun.mainloop()
   #gui.destroy()
