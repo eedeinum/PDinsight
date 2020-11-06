@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter.ttk import *
 import PDinsight as pd
+import os
 
 class PDgui(tk.Frame):
 
@@ -394,6 +395,9 @@ Note that the clicking buttons only works if all dialog windows are closed.")
     self.parCats = ["Particle","Channel","Distribution","Misc"]
     self.fullParLists = {"Particle": ["x","diff"], "Channel": ["Rn","RnList","Rn2List","Rdt","RdtList","Rc","RcList","Lneck","LneckList","Lneck2List","Lpd","LpdList","xMax","xMaxList"], "Distribution": ["densList","grid","gridList","dPit","dPitList","pitList","twinningList"], }
     master.title("PD insight version "+self.defaultPars.versionNumber)
+    ## for debugging purposes:
+    print("This is PDinsight version ", self.defaultPars.versionNumber)
+    print("Current working directory: ", os.getcwd())
     self.pack()
     self.fill()
 
