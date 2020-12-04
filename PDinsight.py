@@ -7,7 +7,7 @@ from copy import deepcopy
 from collections import defaultdict
 
 VERY_MUCH = sys.maxsize
-VERSION = "1.0.2"
+VERSION = "1.0.3"
 
 try:
   from numpy import arange

@@ -363,7 +363,13 @@ Note that the clicking buttons only works if all dialog windows are closed.")
             setattr(self.newPars,p,self.parBoxes[p][2].get())
           ## missing above: check for valid entries. 
       except:
-        pass
+        try:
+          if p in self.listPars:
+            setattr(self.newPars,p,self.parBoxes[p][3].get().split())
+          else:
+            setattr(self.newPars,p,self.parBoxes[p][3].get())
+        except:
+          pass
     for p in self.options:
       try:
         setattr(self.newPars,p,self.radioList[p][0].get())
