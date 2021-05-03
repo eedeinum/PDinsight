@@ -176,7 +176,7 @@ class Parameters():
             
   def printAll(self,filename="allParameters.txt"): 
     outfile = open(filename,'w')
-    outfile.write("## All parameters are written to this file, possibly including ones that are not used in the computation.")
+    outfile.write("## All parameters are written to this file, possibly including ones that are not used in the computation.\n")
     for p in self.simpleBools:
       outfile.write(p+'\t'+str(int(getattr(self,p)))+"\n") 
     for p in self.simpleFloats:
