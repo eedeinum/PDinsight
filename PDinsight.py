@@ -86,7 +86,7 @@ class Parameters():
     self.Lneck2List=[] # neck region length Lneck of "right" neck; only used in computeVals/computeUnitVals if asymmetricPDs == True and doNotCombine == True
     self.diff = 1.62e8 # particle diffusion constant (in nm2/s!) 1.62e8 is used for carboxyfluorescein
     self.Lcell=1e4 # cell length (in nm!) ; does not affect Peff, Fih, etc. The model is only valid if Lcell > spacing between PDs (or pit fields). 
-    self.grid="triangular" # distribution of PDs on regular grid. Choose from: "triangular", "square", "hexagonal" or "hex" and "random"
+    self.grid="hexagonal" # distribution of PDs on regular grid. Choose from: "triangular", "square", "hexagonal" or "hex" and "random"
     self.gridList=[] # distribution of PDs on regular grid. Choose from: "triangular", "square", "hexagonal" or "hex" and "random"
 
     self.peList = [1., 6., 8.5, 25. ]              # list of target permeabilities (Peff)
@@ -303,7 +303,7 @@ def main(parfile):
       fName="requiredDensityTable_"+pars.fileTag+"."+pars.fileExt
     outfile=open(fName, 'w')
     sys.stdout = outfile
-    printTargetDensitiesStraightPD(pars.Rdt,pars.x,pars.xMaxList,pars.peList,pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.dInc,cfDict,pars.colSep)
+    printTargetDensitiesStraightPD(pars.Rdt,pars.x,pars.xMaxList,pars.peList,pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.dInc,cfDict,pars.colSep,False,pars.printRn)
     outfile.close()
     sys.stdout = sys.__stdout__
 
@@ -557,10 +557,10 @@ def gdtH(Rdt,x,xMax):
     return (hLam(Rdt+2.*xMax,x,Rdt)*((Rdt+2.*xMax )**2-(Rdt)**2)/(hLamCyl(xMax,x)*(xMax)**2))/fdt(Rdt,xMax)
   return VERY_MUCH
 
-def printConversionFactors(Rdt,x,xMaxList,Lpd,Lneck,printOut=True):
+def printConversionFactors(Rdt,x,xMaxList,Lpd,Lneck,printOut=True,colSep='\t'):
   if printOut:
     print("## Required density conversion factors for sub-nano model and derivates")
-    print("alpha"+pars.colSep+"alpha_bar"+pars.colSep+"sub-nano"+pars.colSep+"sub-nano_neckOnly"+pars.colSep+"spoke_entrance")
+    print("alpha"+colSep+"alpha_bar"+colSep+"sub-nano"+colSep+"sub-nano_neckOnly"+colSep+"spoke_entrance")
   data={}
   for xMax in xMaxList:
     a = gdtH(Rdt,x,xMax)*fdt(Rdt,xMax)/9. # assume 9 sub-nano channels per PD. 
@@ -1133,7 +1133,12 @@ def  printTargetDensitiesStraightPD(Rdt,x,xMaxList,peList,diff,Lpd,Lcell,grid,Ln
   for xMax in xMaxList:
     dd = dStart
     pe =  Peff(x,xMax*2.+Rdt,diff,Lpd,Lcell,dd,ab[0],ab[1],Rdt,xMax*2.+Rdt,Lneck)
+    peTargetOld = peList[0]
     for peTarget in peList:
+      if peTarget < peTargetOld:
+        dd = dStart
+        pe =  Peff(x,xMax*2.+Rdt,diff,Lpd,Lcell,dd,ab[0],ab[1],Rdt,xMax*2.+Rdt,Lneck)
+      peTargetOld = peTarget
       while pe < peTarget:
         ddPrev = dd          
         dd += dInc 
@@ -1167,7 +1172,12 @@ def  printTargetAperturesStraightPD(Rdt,x,densList,peList,diff,Lpd,Lcell,grid,Ln
   for dd in densList:
     xMax=xStart
     pe =  Peff(x,xMax*2.+Rdt,diff,Lpd,Lcell,dd,ab[0],ab[1],Rdt,xMax*2.+Rdt,Lneck)
+    peTargetOld = peList[0]
     for peTarget in peList:
+      if peTarget < peTargetOld:
+        xMax=xStart
+        pe =  Peff(x,xMax*2.+Rdt,diff,Lpd,Lcell,dd,ab[0],ab[1],Rdt,xMax*2.+Rdt,Lneck)
+      peTargetOld = peTarget
       while pe < peTarget:
         xMaxPrev=xMax
         xMax += xInc 
