@@ -14,7 +14,7 @@
 \maketitle
 
 \section{General information}
-PDinsight is a python program for predicting tissue (cell-cell) level effective permeabilities for symplasmic transport from ultrastructural (EM) data. A typical use would be to compare these values to tissue level assessments of effective permeabilities based on photobleaching / photoactivation of carboxyfluorecein (CF) \citep{Rutschow.pp11} or suitable GFP derivates (e.g., DRONPA-s \citep{Gerlitz.pj18}). The first version of PDinsight was released along with ``From plasmodesma geometry to effective symplasmic permeability through biophysical modelling'', Deinum et al. eLife 2019. Mathematical notation in this manual follows \citep{Deinum.e19}. If using PDinsight in a publication, please cite this manuscript.
+PDinsight is a python program for predicting tissue (cell-cell) level effective permeabilities for symplasmic transport from ultrastructural (EM) data. A typical use would be to compare these values to tissue level assessments of effective permeabilities based on photobleaching / photoactivation of carboxyfluorecein (CF) \citep{Rutschow.pp11} or suitable GFP derivates (e.g., DRONPA-s \citep{Gerlitz.pj18}). The first version of PDinsight was released along with ``From plasmodesma geometry to effective symplasmic permeability through biophysical modelling'', Deinum et al. eLife 2019. Mathematical notation in this manual follows \citep{Deinum.e19}. If using PDinsight in a publication, please cite this manuscript. If using the \texttt{singleInterface} and/or \texttt{bootstrapInterface} modes for using raw data, please also cite \citep{Deinum.p22}
 
 PDinsight is written in python 3. If available, it uses the numpy module, but does not strictly depend upon that. The program has different modes for computing the parameter requirements for a given effective symplasmic wall permeability $P(\alpha)$ for particles of radius $\alpha$ and related quantities. The different modes and the relevant parameters are controlled from a parameter file (default: parameters.txt). A graphical user interface (GUI) is provided to help the user create parameter files and run PDinsight. The GUI is written using TKinter, which is included in standard installation of python.
 
@@ -27,6 +27,9 @@ PDinsight is published under the GNU general public licence v3.0.
 \section{Modes}
 \paragraph{Major modes} The core of PDinsight is computing effective permeabilities ($P(\alpha)$) for symplasmic transport based on all model parameters mentioned in the manuscript. This is in mode \texttt{computeVals}. The same computations are used in other modes, which compute the requirements for obtaining a given target value (or set of values) of $P(\alpha)$. In mode \texttt{computeDens}, required densities ($\rho$) are computed for given values of maximum particle size $\SEL$ (and other parameters). In mode \texttt{computeAperture}, required apertures, given as $\SEL$ as well as neck radius $R_n$, are computed for given values of $\rho$ (and other parameters). In mode \texttt{computeRnDensityGraph}, $R_n,\rho$ curves are computed that together yield a target $P(\alpha)$. The corresponding values of $\SEL$ are also reported. These curves can be visualized using any plotting program. Mode \texttt{sensitivityAnalysis} computes so-called elasticities (normalized partial derivatives) around a given set (or sets) of parameters. These elasticities tell how sensitive calculated values of $P(\alpha),\ \Pi(\alpha)$ and constituents like $\patchy$ (a correction factor for the fact that the cell wall is only symplasmically permeable where the PDs are) are on the parameters involved. 
 
+(New in version 2): In mode \texttt{singleInterface}, $P(\alpha)$ is computed based on raw data, using each entry (set of data for one PD) exactly once. In mode \texttt{bootstrapInterface}, $P(\alpha)$ is computed based on raw data, resampling \texttt{bootstrapSamples} times (with replacement) to a sample size of \texttt{bootstrapSingleSampleSize} if specified, or the number of PDs in the original data set. 
+
+
 \paragraph{Auxillary modes} In computing $P(\alpha)$, correction factor $\patchy$ is automatically included. For specific cases such as modelling studies, however, it may be useful to calculate $\patchy$ separately. For this purpose, several modes exist for  exploring inhomogeneity factor $\patchy$: \texttt{computeFih\_subNano} (function of $\SEL$; also output values for sub-nano model), \texttt{computeFih\_pitField\_dens} (function of $\rho$), \texttt{computeFih\_pitField\_xMax} (function of $\SEL$) and \texttt{computeTwinning} (function of $\rho_{pits}$, cluster density). 
 
 
@@ -38,22 +41,26 @@ The GUI to PDinsight is written to facilitate the creation of parameter files an
 Additional information can be obtained by clicking the ``Info'' button and, for certain parameters, clicking on the parameter name. If additional information is available, the mouse cursor changes into a question mark.
 
 \section{Command line usage}
-\paragraph{Command line usage} (linux): python PDinsight\_vXX.py PARAMETERFILE. \\
-(windows): first open a command prompt window (e.g., by searching for ``cmd'' in the search bar) and go to the directory where PDinsight is located. Then type: py PDinsight\_vXX.py PARAMETERFILE
+\paragraph{Command line usage} (linux): python PDinsight.py PARAMETERFILE. \\
+(windows): first open a command prompt window (e.g., by searching for ``cmd'' in the search bar) and go to the directory where PDinsight is located. Then type: py PDinsight.py PARAMETERFILE
 
-Using the GUI from the command line (linux): python PDinsightGUI\_vYY.py or (windows): py PDinsightGUI\_vYY.py 
-The correct version of PDinsight\_vXX.py should also be available in the current directory.
+Using the GUI from the command line (linux): python PDinsightGUI.py or (windows): py PDinsightGUI.py 
+The correct version of PDinsight.py should also be available in the current directory.
 
-In the above, XX and YY should be replaced by the respective version numbers. 
+%In the above, XX and YY should be replaced by the respective version numbers. 
+
+Note that it is possible to run multiple modes in a single run by setting the respective values behind the options to 1, provided their parameters are fully compatible. For example (based on version 2+): \\
+\texttt{singleInterface  1}\\
+\texttt{bootstrapInterface  1}\\
 
 \section{Output files}
 By default, all outputs are tab separated files (.tsv). This can be switched to csv using the option ``outputType'' (options ``tsv'' and ``csv'').
 
 \section{Program maintenance}
-The latest version of PDinsight + documentation can be downloaded from Github: ....
-It is recommended to update both the core (PDinsight\_vXX.py) and the GUI (PDinsightGUI\_vYY.py) simultaneously. If, for whatever reason you would like to update only the core, please note that you have to adapt the following line in the GUI by hand:
+The latest version of PDinsight + documentation can be downloaded from Github: \url{https://github.com/eedeinum/PDinsight}
+It is recommended to update both the core (PDinsight.py) and the GUI (PDinsightGUI.py) simultaneously. If, for whatever reason you would like to update only the core, please note that you have to adapt the following line in the GUI by hand:
 
-\texttt{import PDinsight\_v1XX as pd}
+\texttt{import PDinsight as pd}
 
 \section{Model parameters}
 
@@ -63,7 +70,7 @@ It is recommended to update both the core (PDinsight\_vXX.py) and the GUI (PDins
 \label{fig:layout}
 \end{figure}
 
-See \autoref{fig:layout} for an overview of single channel PD parameters and PD geometry. See \autoref{tab:pars} for a list of model parameters (PDinsight names) and the corresponding mathematical symbols used in \citet{Deinum.e19}. See \autoref{tab:modes} for available modes and \autoref{tab:options} for available options.
+See \autoref{fig:layout} for an overview of single channel PD parameters and PD geometry. See \autoref{tab:pars} for a list of model parameters (PDinsight names) and the corresponding mathematical symbols used in \citet{Deinum.e19}. See \autoref{tab:modes} for available modes and \autoref{tab:options} for available options. See \autoref{tab:parsBootstrap} for the parameters specific to \texttt{singleInterface} and \texttt{bootstrapInterface} (version 2+). 
 
 \begin{table}
 \caption{List of parameters and mathematical symbols \citep{Deinum.e19}. [List] indicates that (depending on mode), a list of values may be entered.}
@@ -92,6 +99,24 @@ fileTag &&& Prefix for all output files. \\
 \end{table}
 
 \begin{table}
+	\caption{List of parameters specific for \texttt{singleInterface} and \texttt{bootstrapInterface}.}
+\label{tab:parsBootstrap}
+\begin{tabular}{l l p{0.5\textwidth}}
+PDinsight& Default & Description\\
+\hline
+	noData &-1& token for missing data.\\
+	randomSeed &-1 & Random seed (if positive). With negative numbers, no random seed is specified.\\
+	bootstrapSamples & 10000 & Number of resampling iterations when bootstrapping.\\
+	bootstrapSingleSampleSize & 0 & Number of PDs per resampled sample. When 0, PD number is the same as the original data.\\
+	DTintercept &Rdt& for specifying linear DT model: Rdt = DTintercept + varA*coefA [+ varB*coefB + ... ] \\
+	DTvarList && for specifying linear DT model (see above). Must be same length as DTcoefList.\\
+	DTvarCoef && for specifying linear DT model (see above). Must be same length as DTvarList.\\
+
+
+\end{tabular}
+\end{table}
+
+\begin{table}
 \caption{List of modes. Modes indicated with * are only available through the command line interface.}
 \label{tab:modes}
 \begin{tabular}{l  p{0.7\textwidth}}
@@ -103,10 +128,12 @@ computeAperture & Compute required PD aperture (and related $\SEL$) given a (lis
 computeVals & Compute  $P(\alpha)$ given structural parameters etc.\\
 computeUnitVals & Compute $\Pi(\alpha)$ given single PD structural parameters only.\\
 sensitivityAnalysis & Compute elasticities (normalized partial derivatives) around a given set (or sets) of parameters.\\
-*computeFih\_subNano & Compute $\patchy$, including comparison with sub-nano channel model, for $\SEL\in[2\alpha,50]$ nm.\\
-*computeFih\_pitField\_xMax & Compute $\patchy$, possibly for multiple values of $p$, for $\SEL\in[2\alpha,50]$ nm.\\
-*computeFih\_pitField\_dens& Compute $\patchy$, possibly for multiple values of $p$, for $\rho\in[0.1,30]$ PDs/$\mu$m$^2$.\\
-*computeTwinning&Compute $\patchy$, possibly for multiple values of $p$, where the total density is $\rho p$ and $\rho\in[0.1,30]$ PDs/$\mu$m$^2$.\\
+singleInterface & Compute $P(\alpha)$ given raw data with measurements per PD.\\
+bootstrapInterface & Compute $P(\alpha)$ confidence intervals using a bootstrapping approach. Requires raw data with measurements per PD.\\
+$*$ computeFih\_subNano & Compute $\patchy$, including comparison with sub-nano channel model, for $\SEL\in[2\alpha,50]$ nm.\\
+$*$ computeFih\_pitField\_xMax & Compute $\patchy$, possibly for multiple values of $p$, for $\SEL\in[2\alpha,50]$ nm.\\
+$*$ computeFih\_pitField\_dens& Compute $\patchy$, possibly for multiple values of $p$, for $\rho\in[0.1,30]$ PDs/$\mu$m$^2$.\\
+$*$ computeTwinning&Compute $\patchy$, possibly for multiple values of $p$, where the total density is $\rho p$ and $\rho\in[0.1,30]$ PDs/$\mu$m$^2$.\\
 \end{tabular}
 \end{table}
 
@@ -121,13 +148,17 @@ computeClusterIncrease & If true, dens indicates cluster density  rather than to
 printRn & (Additionally) include $R_n$ in output. For some modes, $R_n$ is always printed.\\
 doNotCombine & If true, ``list'' parameters must contain either 1 or $n$ entries, where $n$ is the same for all. PDinsight uses the $i^{th}$ entry (or single value) of each list as a set. Useful for evaluating raw data. If false, PDinsight evaluates all possible combinations of entries in all lists. \\
 asymmetricPDs & Allow for different neck dimensions on either side of the PD. If true, Rn2[List] and Lneck2[list] are required. \\
+	outputType & tsv or csv\\
+	PDmodel & 1cyl (straight), 2cyl (different Rn and Rc), 3cyl (different Rn, Rn2 and Rc). (version 2+)\\
+	DTformula & Allows for a linear model for DT radius rather than a fixed value, e.g., based on statistical model (version 2+)\\
+
 \end{tabular}
 \end{table}
 
 
 
 \bibliographystyle{vancouver-elife}
-\bibliography{singleChannel2018}
+\bibliography{singleChannel}
 
 \end{document}
 

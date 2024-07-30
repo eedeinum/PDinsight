@@ -6,6 +6,7 @@ from tkinter import messagebox
 from tkinter.ttk import *
 import PDinsight as pd
 import os
+from copy import deepcopy
 
 class PDgui(tk.Frame):
 
@@ -14,13 +15,15 @@ class PDgui(tk.Frame):
     self.rModeLabel = tk.Label(self,text="Choose mode (load default parameters to change)")
     self.rModeLabel.grid(row=0,column=0,sticky="W",padx=5,pady=1)
     self.rMode = tk.ttk.Combobox(self)
-    self.rMode["values"] = ( "computeDens", "computeAperture", "computeVals","computeUnitVals","sensitivityAnalysis", "computeRnDensityGraph")
+    self.rMode["values"] = ( "computeDens", "computeAperture", "computeVals","computeUnitVals","sensitivityAnalysis", "computeRnDensityGraph","singleInterface","bootstrapInterface")
     self.rMode.current(3)
     self.rMode.grid(row=0,column=1,sticky="W",padx=5,pady=1)
     ## later get value using self.rMode.get()
     self.loadButton = tk.Button(self,text="Load default parameters", command=self.loadDefaults)
     self.loadButton.grid(row=0,column=2,sticky="W",padx=5,pady=1)
-    
+    self.pdLogo = tk.PhotoImage(file="./logo_PDinsight.png")
+    self.logo=tk.ttk.Label(self,image=self.pdLogo) 
+    self.logo.grid(row=0,column=3,rowspan=2,padx=1,pady=1,sticky="E")
 
     # finally: buttons for running & just exporting parameters
     self.parLabel = tk.Label(self,text="Parameter file name: ")
@@ -41,6 +44,7 @@ class PDgui(tk.Frame):
   def loadDefaults(self):
     self.runType = self.rMode.get()
     print(self.runType)
+    self.fixCats()
     self.getOptions(True)
     self.runButton.config(state=tk.NORMAL)
     self.expButton.config(state=tk.NORMAL)
@@ -52,30 +56,47 @@ class PDgui(tk.Frame):
       setattr(self.newPars,m,False)
     setattr(self.newPars,self.runType,True)
     self.options = []
+    self.MCoptions = []
     for i in self.needPars:
       if i in self.defaultPars.optionList:
         self.options.append(i)
         setattr(self.newPars,i,getattr(self.defaultPars,i))
-    for i in self.options: # removal must appear in a separate step, or fails
+      if i in self.defaultPars.MCoptionList:
+        self.MCoptions.append(i)
+        setattr(self.newPars,i,getattr(self.defaultPars,i))
+    for i in self.options+self.MCoptions: # removal must appear in a separate step, or fails
       self.needPars.remove(i)
     self.radioList={i:[tk.IntVar(),getattr(self.defaultPars,i)] for i in self.options}
-    self.radioList["outputType"] = [tk.IntVar(),self.defaultPars.outputOptions.index(getattr(self.defaultPars,"outputType"))]
-    for i in self.options+["outputType"]  :
-      self.radioList[i][0].set(self.radioList[i][1])
+    #self.radioList["outputType"] = [tk.IntVar(),self.defaultPars.outputOptions.index(getattr(self.defaultPars,"outputType"))]
+    #for i in self.options+["outputType"]  :
+      #self.radioList[i][0].set(self.radioList[i][1])
+    #if "PDmodel" in self.needPars:
+        #self.radioList["PDmodel"] = [tk.IntVar(),self.defaultPars.PDmodelOptions.index(getattr(self.defaultPars,"PDmodel"))]
+    for i in self.MCoptions:
+        self.radioList[i] = [tk.IntVar(),getattr(self.defaultPars,i+"Options").index(getattr(self.defaultPars,i))]
     try:
       for r in self.radioButtons:
         r.destroy()
     except:
       pass
     nrow=4
-    self.radioButtons = [tk.Label(self, text="outputType", justify = tk.LEFT, padx = 20)]
-    self.radioButtons[-1].grid(row=nrow,column=0,sticky="W",columnspan=1,padx=5,pady=1) 
-    for i in range(len(self.defaultPars.outputOptions)):
-      self.radioButtons.append(tk.Radiobutton(self,text=self.defaultPars.outputOptions[i],variable=self.radioList["outputType"][0],value=i,command=self.updatePars))
-      self.radioButtons[-1].grid(row=nrow,column=1,sticky="W",columnspan=1,padx=5+65*i,pady=1) 
-    nrow=5
+    #self.radioButtons = [tk.Label(self, text="outputType", justify = tk.LEFT, padx = 20)]
+    #self.radioButtons[-1].grid(row=nrow,column=0,sticky="W",columnspan=1,padx=5,pady=1) 
+    #for i in range(len(self.defaultPars.outputTypeOptions)):
+      #self.radioButtons.append(tk.Radiobutton(self,text=self.defaultPars.outputTypeOptions[i],variable=self.radioList["outputType"][0],value=i,command=self.updatePars))
+      #self.radioButtons[-1].grid(row=nrow,column=1,sticky="W",columnspan=1,padx=5+65*i,pady=1) 
+    #nrow=5
+    ## TODO: PDmodel does not start with the correct value.
+    for mc in self.MCoptions:
+      self.radioButtons = [tk.Label(self, text=mc, justify = tk.LEFT, padx = 20)]
+      self.radioButtons[-1].grid(row=nrow,column=0,sticky="W",columnspan=1,padx=5,pady=1) 
+      for i in range(len(getattr(self.defaultPars,mc+"Options"))):
+        self.radioButtons.append(tk.Radiobutton(self,text=getattr(self.defaultPars,mc+"Options")[i],variable=self.radioList[mc][0],value=i,command=self.updatePars))
+        self.radioButtons[-1].grid(row=nrow,column=1,sticky="W",columnspan=1,padx=5+65*i,pady=1) 
+      nrow += 1
     for r in self.radioList:
-      if r == "outputType":
+      #if r == "outputType":
+      if r in self.MCoptions:
         continue
       self.radioButtons.append(tk.Label(self, text=r, justify = tk.LEFT, padx = 20))
       self.radioButtons[-1].grid(row=nrow,column=0,sticky="W",columnspan=1,padx=5,pady=1) 
@@ -165,13 +186,21 @@ class PDgui(tk.Frame):
       return self.verifyGrid
     if p == "gridList":
       return self.verifyListGrid
+    if p == "DTvarList":
+      return self.verifyListVar
+    if p == "noiseVarList":
+      return self.verifyListNoiseVar
+    if p == "noiseModelList":
+      return self.verifyListNoiseModel
     if p in self.defaultPars.simpleFloats + list(self.defaultPars.factorFloats.keys()):
       return self.verifyFloat
     if p in  self.defaultPars.listFloats + list(self.defaultPars.listFactorFloats.keys()):
       return self.verifyListFloat
     if p in self.defaultPars.simpleStrings:
       return self.verifyString
-    ## Below option does not occur (yet), as the only listStrings is "gridList"
+    if p in self.defaultPars.simpleInts:
+      return self.verifyInt
+    ## Below option does not occur (yet), as the only listStrings are "gridList", "DTvarList"
     #if p in self.defaultPars.listStrings:
       #return self.verifyListString
 
@@ -185,6 +214,12 @@ class PDgui(tk.Frame):
         pass
     return False
 
+  def testPartialInt(self,t):
+    endInt = ["-"]
+    if t[-1] in endInt:
+      return True
+    return False
+
   def testPartialFloat(self,t):
     endFloat = ["E","e","-","+"]
     if t[-1] in endFloat:
@@ -193,6 +228,19 @@ class PDgui(tk.Frame):
     if t[-2:] in endFloat2:
       return True
     return False
+
+  def verifyListRef(self,P,ref): 
+    ### for some reason with self, calling this function fails. ###
+    sp = P.split()
+    for i in sp:
+      if i not in ref: 
+        if self.testPartial(ref,i):
+          continue
+        else:
+          print ("Invalid entry: ", P, ", failing at: ", i)
+          print ("Valid options: ", ' '.join(ref))
+          return False
+    return True
 
   def verifyPit(self,P): ## actually, this is a list!
     pitOK = [1,2,3,4,5,6,7,12,19]
@@ -222,16 +270,49 @@ class PDgui(tk.Frame):
         return False
     return True
 
+  #def verifyListVar(self,P): 
+    #### for some reason with self, calling function verifyListRef fails. ###
+    #varOK = ["Lpd","Rn","Rc","Rn2","Lneck","Lneck2"]
+    #return verifyListRef(P,varOK)
+
+  def verifyListNoiseVar(self,P): 
+    ### for some reason with self, calling function verifyListRef fails. ###
+    varOK = ["Lpd","Rn","Rc","Rn2","Lneck","Lneck2"]
+    return self.verifyListRef(P,varOK)
+
+  def verifyListNoiseModel(self,P): 
+    ### for some reason with self, calling function verifyListRef fails. ###
+    varOK = ["AU","AG","AN","M"]
+    return self.verifyListRef(P,varOK)
+
+  #def verifyListGrid(self,P): 
+    #### for some reason with self, calling function verifyListRef fails. ###
+    #gridOK = ["triangular", "square", "hexagonal", "hex", "random"]
+    #return verifyListRef(P,gridOK)
+
   def verifyListGrid(self,P): 
     gridOK = ["triangular", "square", "hexagonal", "hex", "random"]
     sp = P.split()
     for i in sp:
       if i not in gridOK: 
-        if self.testPartial(gridOK,P):
+        if self.testPartial(gridOK,i):
           continue
         else:
           print ("Invalid entry: ", P, ", failing at: ", i)
           print ("Valid options: ", ' '.join(gridOK))
+          return False
+    return True
+
+  def verifyListVar(self,P): 
+    varOK = ["Lpd","Rn","Rc","Rn2","Lneck","Lneck2"]
+    sp = P.split()
+    for i in sp:
+      if i not in varOK: 
+        if self.testPartial(varOK,i):
+          continue
+        else:
+          print ("Invalid entry: ", P, ", failing at: ", i)
+          print ("Valid options: ", ' '.join(varOK))
           return False
     return True
 
@@ -244,6 +325,18 @@ class PDgui(tk.Frame):
       if not self.testPartialFloat(P):
         print ("Invalid entry: ", P)
         print ("Valid entries: floating point number")
+        return False
+    return True
+
+  def verifyInt(self,P):
+    if not P:
+      return True
+    try:
+      f = int(P)
+    except ValueError:
+      if not self.testPartialInt(P):
+        print ("Invalid entry: ", P)
+        print ("Valid entries: integers")
         return False
     return True
 
@@ -292,14 +385,38 @@ class PDgui(tk.Frame):
     if checkList:
         for i in checkList:
           setattr(self.newPars,i,self.radioList[i][0].get())
-        setattr(self.newPars,"outputType",self.defaultPars.outputOptions[self.radioList["outputType"][0].get()])
+        for i in self.MCoptions:
+          setattr(self.newPars,i,getattr(self.defaultPars,i+"Options")[self.radioList[i][0].get()])
+        #setattr(self.newPars,"outputType",self.defaultPars.outputTypeOptions[self.radioList["outputType"][0].get()])
+        self.fixCats()
         self.fixPars(checkList)
     else:
         for i in self.options:
           setattr(self.newPars,i,self.radioList[i][0].get())
-        setattr(self.newPars,"outputType",self.defaultPars.outputOptions[self.radioList["outputType"][0].get()])
+        #setattr(self.newPars,"outputType",self.defaultPars.outputTypeOptions[self.radioList["outputType"][0].get()])
+        for i in self.MCoptions:
+          setattr(self.newPars,i,getattr(self.defaultPars,i+"Options")[self.radioList[i][0].get()])
+        self.fixCats()
         self.fixPars()
     self.drawPars()
+
+  def fixCats(self):
+    self.parCats = deepcopy(self.allParCats)
+    #self.allParCats = ["Particle","Channel","Distribution","Noise","DTformula","Misc"]
+    #self.rMode["values"] = ( "computeDens", "computeAperture", "computeVals","computeUnitVals","sensitivityAnalysis", "computeRnDensityGraph","singleInterface","bootstrapInterface")
+    if self.runType != "bootstrapInterface":
+      self.parCats.remove("Noise")
+    if self.runType == "computeUnitVals":
+      self.parCats.remove("Distribution")
+    if self.runType not in ["bootstrapInterface","singleInterface"]:
+      self.parCats.remove("DTformula")
+
+  def addParCat(self,cat):
+    if cat not in self.parCats:
+      self.parCats.remove("Misc")
+      self.parCats.append(cat)
+      self.parCats.append("Misc")
+    return
 
   def fixPars(self,checkList=None):
     if checkList:
@@ -330,6 +447,55 @@ class PDgui(tk.Frame):
             except:
               pass
             self.needPars.add("RnList")
+      elif i == "DTformula":
+        if getattr(self.newPars,i) == False:
+          try:
+            self.needPars.remove("DTintercept")
+          except:
+            pass
+          try:
+            self.needPars.remove("DTvarList")
+          except:
+            pass
+          try:
+            self.needPars.remove("DTcoefList")
+          except:
+            pass
+          try: 
+            self.parCats.remove("DTformula")
+          except:
+            pass
+        elif getattr(self.newPars,i) == True:
+          self.needPars.add("DTintercept")
+          self.needPars.add("DTvarList")
+          self.needPars.add("DTcoefList")
+          self.addParCat("DTformula")
+      elif i == "addNoise":
+        if getattr(self.newPars,i) == False:
+          try:
+            self.needPars.remove("noiseVarList")
+          except:
+            pass
+          try:
+            self.needPars.remove("noiseMagnitudeList")
+          except:
+            pass
+          try:
+            self.needPars.remove("noiseModelList")
+          except:
+            pass
+          try: 
+            self.parCats.remove("Noise")
+          except:
+            pass
+        elif getattr(self.newPars,i) == True:
+          self.needPars.add("noiseVarList")
+          self.needPars.add("noiseMagnitudeList")
+          self.needPars.add("noiseModelList")
+          #self.parCats.remove("Misc")
+          #self.parCats.append("Noise")
+          #self.parCats.append("Misc")
+          self.addParCat("Noise")
       ## TODO: add more    
 
   def runClicked(self):
@@ -382,11 +548,11 @@ Note that the clicking buttons only works if all dialog windows are closed.")
     self.newPars.validate()
     for p in self.needPars:
       self.newPars.writeSingle(p,outfile,True)
-    for p in self.options:
+    for p in self.options+self.MCoptions:
       self.newPars.writeSingle(p,outfile,True)
+    #self.newPars.writeSingle("outputType",outfile,True)
     for m in self.rMode["values"]:  
       self.newPars.writeSingle(m,outfile,True)
-    self.newPars.writeSingle("outputType",outfile,True)
     outfile.close()
 
   def __init__(self,master=None):
@@ -398,8 +564,9 @@ Note that the clicking buttons only works if all dialog windows are closed.")
     self.defaultPars.fileTag = "gui"
     self.parFileName=tk.StringVar(self,"parameters.txt")
     self.listPars= self.defaultPars.listFloats + list(self.defaultPars.listFactorFloats.keys()) + self.defaultPars.listStrings
-    self.parCats = ["Particle","Channel","Distribution","Misc"]
-    self.fullParLists = {"Particle": ["x","diff"], "Channel": ["Rn","RnList","Rn2List","Rdt","RdtList","Rc","RcList","Lneck","LneckList","Lneck2List","Lpd","LpdList","xMax","xMaxList"], "Distribution": ["densList","grid","gridList","dPit","dPitList","pitList","twinningList"], }
+    self.allParCats = ["Particle","Channel","Distribution","Noise","DTformula","Misc"]
+    self.parCats = self.allParCats
+    self.fullParLists = {"Particle": ["x","diff"], "Channel": ["Rn","RnList","Rn2List","Rdt","RdtList","Rc","RcList","Lneck","LneckList","Lneck2List","Lpd","LpdList","xMax","xMaxList"], "Distribution": ["densList","grid","gridList","dPit","dPitList","pitList","twinningList"], "Noise": ["noiseVarList","noiseModelList","noiseMagnitudeList"], "DTformula": ["DTvarList","DTcoefList","DTintercept"] }
     master.title("PD insight version "+self.defaultPars.versionNumber)
     ## for debugging purposes:
     print("This is PDinsight version ", self.defaultPars.versionNumber)

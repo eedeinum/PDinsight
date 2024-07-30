@@ -5,9 +5,11 @@ import sys
 import operator
 from copy import deepcopy
 from collections import defaultdict
+from statistics import mean
+import random as rand
 
 VERY_MUCH = sys.maxsize
-VERSION = "1.0.4"
+VERSION = "2.0b"
 
 try:
   from numpy import arange
@@ -20,9 +22,10 @@ except:
 
 
 ## This script computes the requirements for obtaining a given target effective wall permeability (Peff) through diffusive symplastic transport. Depending on the computation modes used, either the density or the maximum particle size that can pass the model PD is given as an input parameter. Directly computing Peff from a combination of parameters is also possible. Multiple values of input parameters can be evaluated in a single run. See parameter file for explanation of the different modes.
-## This script belongs to the manuscript .... Deinum et al 2019, ... . When using values from this script in a publication, please cite Deinum et al 2019. 
-## In this script, PDs are modeled as a set of concentric cylinders. The space available for symplastic transport, the cytoplasmic sleeve, is confined between desmotubule (DT, radius Rdt) and outer radius (Rn, neck radius and/or Rc, central radius). 
-### If Rn == Rc, as is the case in all computations in this script (as currently used), the parameter Lneck (length of the neck region) does not have any effect.
+## This script belongs to the manuscript "From plasmodesma geometry to effective symplasmic permeability through biophysical modelling" Deinum et al 2019, eLife;  doi: 10.7554/eLife.49000. When using values from this script in a publication, please cite Deinum et al 2019. 
+## When using singleInterface or bootstrapInterface modes, please cite Deinum 2022: More Insights from Ultrastructural and Functional Plasmodesmata Data Using PDinsight, Methods Mol Biol . 2022:2457:443-456.  doi: 10.1007/978-1-0716-2132-5_30. 
+## In this script, PDs are modeled as a set of concentric cylinders. The space available for symplastic transport, the cytoplasmic sleeve, is confined between desmotubule (DT, radius Rdt) and outer radius (Rn, Rn2, neck radius and/or Rc, central radius). 
+### If Rn == Rc, the parameter Lneck (length of the neck region) does not have any effect.
 ### We found that Fih, a correction factor for the fact that the cell wall is only permeable at discrete spots (the PDs), does not depend on Lcell, the cell length. This parameter, therefore, also has no effect.
 
 ## usage: [python] ./PDinsight.py [parameterfile] 
@@ -32,20 +35,25 @@ except:
 class Parameters():
   versionNumber=VERSION
   parExtraInfo = defaultdict(lambda:None)
-  info = { "grid": 'Available options: "triangular", "square", "hexagonal" or "hex" and "random"', "gridList": 'Available options: "triangular", "square", "hexagonal" or "hex" and "random"', "pitList": "Available options: 1, 2, 3, 4, 5, 6, 7, 12, 19", "twinningList": "Available options: 1, 2, 3, 4, 5, 6, 7, 12, 19", "xMax" : "Maximum particle size: xMax = (Rn - Rdt)/ 2 (unobstructed sleeve model). In other words: Rn = Rdt + 2*xMax.", "xMaxList" : "Maximum particle size: xMax = (Rn - Rdt)/ 2 (unobstructed sleeve model). In other words: Rn = Rdt + 2*xMax.", "Rc": "If Rc < Rn, a straight channel with radius Rn is assumed. Use 0 to only study straight channels." , "RcList": "If Rc < Rn, a straight channel with radius Rn is assumed. Use 0 to only study straight channels." }
+  info = { "grid": 'Available options: "triangular", "square", "hexagonal" or "hex" and "random"', "gridList": 'Available options: "triangular", "square", "hexagonal" or "hex" and "random"', "pitList": "Available options: 1, 2, 3, 4, 5, 6, 7, 12, 19", "twinningList": "Available options: 1, 2, 3, 4, 5, 6, 7, 12, 19", "xMax" : "Maximum particle size: xMax = (Rn - Rdt)/ 2 (unobstructed sleeve model). In other words: Rn = Rdt + 2*xMax.", "xMaxList" : "Maximum particle size: xMax = (Rn - Rdt)/ 2 (unobstructed sleeve model). In other words: Rn = Rdt + 2*xMax.", "Rc": "If Rc < Rn, a straight channel with radius Rn is assumed. Use 0 to only study straight channels." , "RcList": "If Rc < Rn, a straight channel with radius Rn is assumed. Use 0 to only study straight channels.", "DTformula": "If true, DT= DTintercept + DTvar1*DTcoef1 + ...", "DTcoefList": "model: DT= DTintercept + DTvar1*DTcoef1 + ...", "DTvarList": "model: DT= DTintercept + DTvar1*DTcoef1 + ...", "DTintercept": "model: DT= DTintercept + DTvar1*DTcoef1 + ...", "randomSeed": "Positive integers are used as seed. For negative numbers, the random generator is initialized without seed.", "noiseModelList": "Available options: AU (additive, uniform), AG = AN (additive, normally distributed), M (multiplicative; lognormal distributed)" ,"boostrapSampleSize": "Determined automatically if 0. Normally, there is no need to set this by hand."}
   for i in info.keys():
     parExtraInfo[i] = info[i]
-  parDescriptions = {"RnList": "Neck radius (RnList; nm)", "Rn2List": "2nd neck radius (Rn2List; nm)","Rn": "Neck radius (Rn; nm)", "Rdt": "Desmotubule radius (Rdt; nm)", "RdtList": "Desmotubule radius (RdtList; nm)", "Rc": "Central region radius (Rc; nm)", "RcList": "Central region radius (RcList; nm)" ,"Lpd": "PD length (Lpd; nm)" ,"LpdList": "PD length (LpdList; nm)" ,"Lneck": "Neck length (Lneck; nm)" ,"LneckList": "Neck length (LneckList; nm)" ,"Lneck2List": "2nd neck length (Lneck2List; nm)" ,"xMax": "Max particle size (xMax; nm)" ,"xMaxList": "Max particle size (xMaxList; nm)" ,"grid": "PD grid type (grid)" ,"gridList": "PD grid type (gridList)" , "densList": "PD density (densList; PDs/um2)" , "diff": "Particle diffusion constant (diff; um2/s)" , "dInc": "PD density increment (dInc; PDs/um2)" , "x": "Particle radius (x; nm)" , "xStart": "Starting max particle radius Rn-dens graph (xStart; nm)" , "xStep": "Max particle radius increment Rn-dens graph (xStep; nm)" , "xInc": "Max particle radius increment computeAperture (xInc; nm)" , "Lcell": "Cell length = irrelevant (Lcell; um)" , "dPit": "PD-PD distance inside pit (dPit; nm)" , "dPitList": "PD-PD distance inside pit (dPitList; nm)" , "pitDens": "Pit density (pitDens; PDpits/um2)" , "pitList": "PDs per pit (pitList)" , "twinningList": "PDs per pit (twinningList)" , "x": "Particle radius (x; nm)" , "peList": "Target effective permeability (peList; um/s)" , "fileTag": "output file tag (fileTag)" , "sensIncList": "Stepsize for numerical differentiation (a.u.)" }
-  optionDescriptions = {"compSubNano": "Also compute values for sub-nano channel model (ignored for asymmetricPDs)","computeTwinning": "compute impact on Peff due to twinning, starting from isolated PDs", "computeClusterIncrease": "consider (repeated) twinning from starting densities in densList", "printRn": "print calculated Rn in output", "doNotCombine": "no: compute for all combinations of parameters in lists; yes: only compute for same position in list","asymmetricPDs": "Allow different neck length/radius on either side"}
-  requiredPars = {"sensitivityAnalysis": ["RnList", "RdtList", "RcList","LpdList","densList","Lneck","sensIncList"], "computeVals": ["LpdList","LneckList","Lneck2List","densList","RnList","Rn2List","RcList","RdtList","pitList","dPitList","xMaxList","computeClusterIncrease","doNotCombine","compSubNano","asymmetricPDs","grid"] , "computeUnitVals": ["LpdList","LneckList","Lneck2List","RnList","Rn2List","RcList","RdtList","doNotCombine","asymmetricPDs"] , "computeDens": ["xMaxList","peList","Lpd","Rdt","dInc","printRn","grid"], "computeAperture": ["peList","Rdt","densList","Lpd","grid","xInc","compSubNano"] , "computeRnDensityGraph": ["peList","Lpd","Rdt","xStart","xMax","xStep","grid","dInc"], "all": ["fileTag","x","diff"]} ## point of debugging: may be missing a value or two
-  optionList = ["compSubNano", "computeTwinning", "computeClusterIncrease", "printRn", "doNotCombine","asymmetricPDs"]
-  simpleFloats = ["Rdt", "x", "Lpd", "dPit", "Lneck", "xStep", "xStart", "xMax", "xInc" ]
+  parDescriptions = {"RnList": "Neck radius (RnList; nm)", "Rn2List": "2nd neck radius (Rn2List; nm)","Rn": "Neck radius (Rn; nm)", "Rdt": "Desmotubule radius (Rdt; nm)", "RdtList": "Desmotubule radius (RdtList; nm)", "Rc": "Central region radius (Rc; nm)", "RcList": "Central region radius (RcList; nm)" ,"Lpd": "PD length (Lpd; nm)" ,"LpdList": "PD length (LpdList; nm)" ,"Lneck": "Neck length (Lneck; nm)" ,"LneckList": "Neck length (LneckList; nm)" ,"Lneck2List": "2nd neck length (Lneck2List; nm)" ,"xMax": "Max particle size (xMax; nm)" ,"xMaxList": "Max particle size (xMaxList; nm)" ,"grid": "PD grid type (grid)" ,"gridList": "PD grid type (gridList)" , "densList": "PD density (densList; PDs/um2)" , "diff": "Particle diffusion constant (diff; um2/s)" , "dInc": "PD density increment (dInc; PDs/um2)" , "x": "Particle radius (x; nm)" , "xStart": "Starting max particle radius Rn-dens graph (xStart; nm)" , "xStep": "Max particle radius increment Rn-dens graph (xStep; nm)" , "xInc": "Max particle radius increment computeAperture (xInc; nm)" , "Lcell": "Cell length = irrelevant (Lcell; um)" , "dPit": "PD-PD distance inside pit (dPit; nm)" , "dPitList": "PD-PD distance inside pit (dPitList; nm)" , "pitDens": "Pit density (pitDens; PDpits/um2)" , "pitList": "PDs per pit (pitList)" , "twinningList": "PDs per pit (twinningList)" , "x": "Particle radius (x; nm)" , "peList": "Target effective permeability (peList; um/s)" , "fileTag": "output file tag (fileTag)" , "sensIncList": "Stepsize for numerical differentiation (a.u.)", "DTvarList": "Model variables in DTmodel (DTvarList)","DTcoefList": "Coefficients for DTmodel variables (DTcoefList)","DTintercept": "Intercept of DTmodel (DTintercept)", "bootstrapSamples": "resampling n (bootstrapSamples)", "randomSeed": "random seed for bootstrapping", "noiseVarList":"Variables with noise (noiseVarList)","noiseMagnitudeList":"noiseMagnitudeList","noiseModelList":"noiseModelList (AU, AN, M)","noData":"token for missing data (noData)","bootstrapSingleSampleSize": "number of PDs per resampled set"}
+  optionDescriptions = {"compSubNano": "Also compute values for sub-nano channel model (ignored for asymmetricPDs)","computeTwinning": "compute impact on Peff due to twinning, starting from isolated PDs", "computeClusterIncrease": "consider (repeated) twinning from starting densities in densList", "printRn": "print calculated Rn in output", "doNotCombine": "no: compute for all combinations of parameters in lists; yes: only compute for same position in list","asymmetricPDs": "Allow different neck length/radius on either side", "DTformula": "yes: Use linear model for DT radius", "addNoise": "Add noise when resampling"} 
+  requiredPars = {"sensitivityAnalysis": ["RnList", "RdtList", "RcList","LpdList","densList","Lneck","sensIncList"], "computeVals": ["LpdList","LneckList","Lneck2List","densList","RnList","Rn2List","RcList","RdtList","pitList","dPitList","xMaxList","computeClusterIncrease","doNotCombine","compSubNano","asymmetricPDs","grid"] , "computeUnitVals": ["LpdList","LneckList","Lneck2List","RnList","Rn2List","RcList","RdtList","doNotCombine","asymmetricPDs"] , "computeDens": ["xMaxList","peList","Lpd","Rdt","dInc","printRn","grid"], "computeAperture": ["peList","Rdt","densList","Lpd","grid","xInc","compSubNano"] , "computeRnDensityGraph": ["peList","Lpd","Rdt","xStart","xMax","xStep","grid","dInc"], "all": ["fileTag","x","diff","outputType"],\
+          "singleInterface": ["LpdList","LneckList","Lneck2List", "densList","RnList","Rn2List","RcList","RdtList","pitList","dPitList","asymmetricPDs","grid","PDmodel","doNotCombine","DTformula","DTvarList","DTcoefList","DTintercept","noData"],
+          "bootstrapInterface": ["LpdList","LneckList","Lneck2List", "densList","RnList","Rn2List","RcList","RdtList","pitList","dPitList","asymmetricPDs","grid","PDmodel","bootstrapSamples","randomSeed","doNotCombine","DTformula","DTvarList","DTcoefList","DTintercept","addNoise","noiseVarList","noiseMagnitudeList","noiseModelList","noData","bootstrapSingleSampleSize"] 
+          } ## point of debugging: may be missing a value or two; TODO update for singleInterface & bootstrapInterface. ## maybe also add to singleInterface: ,"addNoise","noiseVarList","noiseMagnitudeList","noiseModelList"
+  optionList = ["compSubNano", "computeTwinning", "computeClusterIncrease", "printRn", "doNotCombine","asymmetricPDs","DTformula","addNoise"]
+  MCoptionList = ["outputType", "PDmodel"]
+  simpleFloats = ["Rdt", "x", "Lpd", "dPit", "Lneck", "xStep", "xStart", "xMax", "xInc","DTintercept" ]
   factorFloats = {"diff":1e6,"Lcell":1e3, "dInc":1e-6, "pitDens":1e-6}
-  listFloats = [ "peList", "xMaxList", "twinningList", "pitList", "dPitList", "LpdList", "RnList", "RcList", "RdtList", "sensIncList" ,"LneckList","Lneck2List","Rn2List"]
+  listFloats = [ "peList", "xMaxList", "twinningList", "pitList", "dPitList", "LpdList", "RnList", "RcList", "RdtList", "sensIncList" ,"LneckList","Lneck2List","Rn2List","DTcoefList","noiseMagnitudeList"]
   listFactorFloats = {"densList":1e-6} 
-  simpleBools = ["compSubNano", "computeFih_subNano", "computeFih_pitField_xMax", "computeFih_pitField_dens", "computeTwinning", "computeClusterIncrease", "computeRnDensityGraph","computeDens","computeAperture","computeVals", "printRn","sensitivityAnalysis", "computeUnitVals","doNotCombine","asymmetricPDs"]
-  simpleStrings = ["grid", "fileTag"]
-  listStrings = ["gridList"]
+  simpleInts = ["bootstrapSamples","randomSeed","noData","bootstrapSingleSampleSize"]
+  simpleBools = ["compSubNano", "computeFih_subNano", "computeFih_pitField_xMax", "computeFih_pitField_dens", "computeTwinning", "computeClusterIncrease", "computeRnDensityGraph","computeDens","computeAperture","computeVals", "printRn","sensitivityAnalysis", "computeUnitVals","singleInterface","bootstrapInterface","doNotCombine","asymmetricPDs","bootstrapInterface","singleInterface","addNoise","DTformula"]
+  simpleStrings = ["grid", "fileTag","dataSep"]
+  listStrings = ["gridList","DTvarList","noiseModelList","noiseVarList"]
   def __init__ (self):
     ### Default parameters ###  
     ## switches for computing various different quantities
@@ -65,14 +73,20 @@ class Parameters():
     self.printRn=True  # Print Rn values to table. Under the unobstructed sleeve model: Rn = Rdt + 2 xMax (so, typically, Rn is redundant, but may be useful to print, e.g., for plotting). ; For computeVals if compSubNano is True, Rn values are always printed, as they are non-trivial for the sub-nano model.
     self.sensitivityAnalysis=False  # Perform sensitivity analysis: Numerically compute derivatives of Peff and other quantities (to Rn, Rc, Rdt, Lpd, Lneck, rho=dens ) around a starting point given by parameters.
     self.asymmetricPDs=False  # Allow for different Lneck and Rn on either side of the PD. Required inputs: Rn1List, Rn2List, Lneck1List,Lneck2List (all equal length). Currenly only works for computeVals and computeUnitVals with doNotCombine==True
-
+    ## new options for singleInterface and bootstrapInterface
+    self.singleInterface=False # compute Punit per PD + Peff based on average Punit for complete data; averages of parameters; 
+    self.bootstrapInterface=False # compute Peff + confidence intervals based on resampled data
+    self.bootstrapDiagnosticGraphs=False # Not implemented yet.
+    self.DTformula=False # infer Rdt from formula (linear statistical model) ; currently only for singleInterface and bootstrapInterface
+    self.addNoise=False # flexible mode for adding measurement noise when resampling during bootstrap
 
     self.fileTag = "" # if exists, file names are appended with _fileTag
     self.outputType = "tsv" # output type: tsv or csv
     self.colSep="\t"
     self.fileExt="tsv"
     self.typeDict={ "tsv":["\t","tsv"], "TSV":["\t","tsv"], "csv":[",","csv"], "CSV":[",","csv"]} 
-    self.outputOptions=["tsv","csv"]
+    self.outputTypeOptions=["tsv","csv"]
+    self.PDmodelOptions=["1cyl","2cyl","3cyl"]
 
     ## Parameters
     ## internally: length for all parameters in nm
@@ -109,6 +123,23 @@ class Parameters():
     self.xStart = 1.
     self.xMax = 36.
 
+    ## new parameters for singleInterface and bootstrapInterface
+    self.dataSep=","
+    self.noData=-1
+    self.bootstrapSamples=10000
+    self.bootstrapSingleSampleSize=0
+    self.CIlevel=0.95
+    self.consistentInterfaceLabels="False" # often, it is too hard to identify the orientation of the PD, making neck1 and neck2 arbitrary among PDs in the same sample. --> bootstrapping strategy. 
+    self.PDmodel="3cyl" # (in future use this for all inputs? compute from data? maybe sometimes a 3cyl input and a 2cyl model actually is best...)
+    self.randomSeed=-1 # initialize random if < 0
+    self.DTvarList=[] # parameter required if DTformula == True
+    self.DTcoefList=[] # parameter required if DTformula == True
+    self.DTintercept=self.Rdt # parameter required if DTformula == True
+    self.noiseModelList=[] # currently: A (additive), M (multiplicative) ; all noise is uniform (U). Future: also Guassian/Normal (G or N)?
+    self.noiseVarList=[]  # noise may be applied to ....
+    self.noiseMagnitudeList=[] # for uniform noise: xi ~ U(-m,m) ; future: for Gaussian noise: xi ~ N(0,m)
+    self.downSample="avg"
+
     ## numerical parameters 
     self.dInc = 1e-7 # step size for finding target density (followed by linear interpolation)
     self.xInc = 0.01 # step size for finding target PD aperture (alpha_bar, Rn) (followed by linear interpolation)
@@ -132,6 +163,8 @@ class Parameters():
         setattr(self,sp[0],[float(s) for s in sp[1:]])
       elif sp[0] in self.listFactorFloats:
         setattr(self,sp[0],[float(s)*self.listFactorFloats[sp[0]] for s in sp[1:]])
+      elif sp[0] in self.simpleInts:
+        setattr(self,sp[0],int(sp[1]))
       elif sp[0] in self.simpleBools:
         setattr(self,sp[0],bool(int(sp[1])))
       elif sp[0] in self.listStrings:
@@ -142,10 +175,16 @@ class Parameters():
           self.fileExt = self.typeDict[sp[1]][1]
           self.outputType = sp[1]
         except:
-          print("File type not supported: ", sp[0], ". Using tsv instead") 
+          print("File type not supported: ", sp[1], ". Using tsv instead") 
           self.colSep = '\t'
           self.fileExt = "tsv"
           self.outputType = "tsv"
+      elif sp[0] == "PDmodel":
+        if sp[1] in self.PDmodelOptions:  
+          setattr(self,sp[0],sp[1])
+        else:
+          print("PDmodel not recorgnized", sp[1], "using 1cyl (straight channels) instead") 
+          setattr(self,sp[0],"1cyl")
       else: ## assume single string
         try:
           setattr(self,sp[0],sp[1])
@@ -179,6 +218,8 @@ class Parameters():
     outfile.write("## All parameters are written to this file, possibly including ones that are not used in the computation.\n")
     for p in self.simpleBools:
       outfile.write(p+'\t'+str(int(getattr(self,p)))+"\n") 
+    for p in self.simpleInts:
+      outfile.write(p+'\t'+str(getattr(self,p))+"\n") 
     for p in self.simpleFloats:
       outfile.write(p+'\t'+str(getattr(self,p))+"\n") 
     for p in self.factorFloats:
@@ -189,12 +230,15 @@ class Parameters():
       outfile.write('\t'.join([p]+[str(s) for s in getattr(self,p)])+"\n") 
     for p in self.listFactorFloats:
       outfile.write('\t'.join([p]+[str(s/self.listFactorFloats[p]) for s in getattr(self,p)])+"\n") 
-    outfile.write("outputType\t"+self.outputType)
+    outfile.write("outputType\t"+self.outputType+'\n')
+    outfile.write("PDmodel\t"+self.PDmodel+'\n')
     outfile.close()
             
   def writeSingle(self,p,outfile,guiForm=True): 
     if p in self.simpleBools:
       outfile.write(p+'\t'+str(int(getattr(self,p)))+"\n") 
+    elif p in self.simpleInts:
+      outfile.write(p+'\t'+str(getattr(self,p))+"\n") 
     elif p in self.simpleFloats:
       outfile.write(p+'\t'+str(getattr(self,p))+"\n") 
     elif p in self.factorFloats:
@@ -202,7 +246,7 @@ class Parameters():
         outfile.write(p+'\t'+str(getattr(self,p))+"\n") 
       else:
         outfile.write(p+'\t'+str(getattr(self,p)/self.factorFloats[p])+"\n") 
-    elif p in self.simpleStrings + ["outputType"]:
+    elif p in self.simpleStrings + ["outputType","PDmodel"]:
       outfile.write(p+'\t'+str(getattr(self,p))+"\n") 
     elif p in self.listFloats:
       outfile.write('\t'.join([p]+[str(s) for s in getattr(self,p)])+"\n") 
@@ -211,9 +255,24 @@ class Parameters():
         outfile.write('\t'.join([p]+[str(s) for s in getattr(self,p)])+"\n") 
       else:
         outfile.write('\t'.join([p]+[str(s/self.listFactorFloats[p]) for s in getattr(self,p)])+"\n") 
+    elif p in self.listStrings:
+      outfile.write('\t'.join([p]+getattr(self,p))+'\n')
 
 
   def validate(self):
+    if self.singleInterface or self.bootstrapInterface:
+      if self.DTformula:
+        if len(getattr(self,"DTvarList")) != len(getattr(self,"DTcoefList")):
+          print ("Cannot interpret statistical model: unequal list lengths", "DTvarList", "DTcoefList")
+          return False
+    if self.bootstrapInterface:
+      if self.addNoise:
+        if len(getattr(self,"noiseModelList")) != len(getattr(self,"noiseMagnitudeList")):
+          print ("Cannot interpret noise model: unequal list lengths", "noiseModelList", "noiseMagnitudeList")
+          return False
+        if len(getattr(self,"noiseVarList")) != len(getattr(self,"noiseMagnitudeList")):
+          print ("Cannot interpret noise model: unequal list lengths", "noiseVarList", "noiseMagnitudeList")
+          return False
     if self.doNotCombine == True:
       requiredLists = []
       if self.computeUnitVals:
@@ -229,6 +288,19 @@ class Parameters():
           testList.remove("RnList")
           testList.remove("Rn2List")
           testList.remove("Lneck2List")
+      if self.singleInterface:
+        testList = deepcopy(self.requiredPars["singleInterface"])
+        testList.remove("DTvarList")
+        testList.remove("DTcoefList")
+        testList.remove("DTintercept")
+        #testList.remove("DTvarList","DTcoefList","DTintercept","noiseVarList", "noiseMagnitudeList","noiseModelList")
+      if self.bootstrapInterface:
+        testList = deepcopy(self.requiredPars["bootstrapInterface"])
+        testList.remove("DTvarList")
+        testList.remove("DTcoefList")
+        testList.remove("DTintercept")
+        testList.remove("noiseMagnitudeList")
+        testList.remove("noiseModelList")
       for r in testList:
         if r[-4:] == "List":
           requiredLists.append(r)
@@ -252,7 +324,557 @@ class Parameters():
       elif len(lenSet) == 1 and lenList[0] == 0:
         print ("All lists empty. Nothing can be computed.")
         return False
-        
+    return True
+
+class PD():
+    #self.Rdt = 8. # Desmotubule (DT) radius
+    #self.Lpd=100. # PD length. Usually similar to cell wall thickness. 
+    #self.Lneck=25. # neck region length
+    #self.Lneck2=27. # 2nd neck region length
+    #self.Rn = 14. # neck region radius
+    #self.Rn2 = 17. # 2nd neck region radius
+    #self.Rc = 23. # central region radius
+    def __init__(self,rdt=0,lpd=0,rn=0,ln=0,rc=0,rn2=0,ln2=0):
+    #def __init__(self,lpd=0,rn=0,ln=0,rc=0,rn2=0,ln2=0):
+      self.Rdt = rdt # Desmotubule (DT) radius ## removed DT from class PD, because it is unlikely that this can be measured for each PD independenlty.
+      self.Lpd=lpd # PD length. Usually similar to cell wall thickness. 
+      self.Rn = rn # neck region radius
+      self.Lneck=ln # neck region length
+      self.Rc = rc # central region radius
+      self.Rn2 = rn2 # 2nd neck region radius
+      self.Lneck2=ln2 # 2nd neck region length
+## add stuff.
+      #self.Punit = {tag:-1 for tag in ["1cyl", "2cyl", "3cyl"]} # available PD models ## becomes more complicated w/o Rdt value!
+      self.Punit={}
+      self.isComplete={tag:0 for tag in ["1cyl", "2cyl", "3cyl"]} # available PD models
+    def copy(self):
+      return PD(self.Rdt,self.Lpd, self.Rn,self.Lneck,self.Rc,self.Rn2,self.Lneck2)
+    def checkComplete(self):
+      #if self.Rdt > 0 and self.Lpd > 0 and self.Rn > 0 :
+      if self.Lpd > 0 and self.Rn > 0 :
+        self.isComplete["1cyl"] = 1
+        if self.Lneck > 0 and self.Rc > 0:
+          self.isComplete["2cyl"] = 1
+          if self.Rn2 > 0 and self.Lneck2 >0:
+            self.isComplete["3cyl"] = 1
+        return 1
+      return 0
+    def makeComplete(self,PDdata,pars):
+      stopList = ["1cyl","2cyl","3cyl"]
+      parLists = [["Rn","Lpd"],["Rn","Rc","Lneck"],["Rn2","Lneck2"]]
+      for i in range(len(stopList)):
+        for par in parLists[i]:
+          if getattr(self,par) == 0:
+            setattr(self,par,PDdata.samplePar(par))
+            while getattr(self,par) == 0:  ## NOTE: inefficient with high % missing values
+              setattr(self,par,PDdata.samplePar(par))
+        if pars.PDmodel == stopList[i]:
+          if pars.DTformula :
+            self.calcRdt(pars)
+          else:
+            setattr(self,"Rdt",PDdata.samplePar("Rdt"))
+          return #self
+    def print(self):
+      print(self.Rdt,self.Lpd,self.Rn,self.Lneck,self.Rc,self.Rn2,self.Lneck2)
+      #print("Lpd:",self.Lpd,"Rn:",self.Rn,"Lneck:",self.Lneck,"Rc:",self.Rc,"Rn2:",self.Rn2,"Lneck2:",self.Lneck2)
+    def calcRdt(self,pars):
+      varPart = 0
+      for i in range(len(pars.DTvarList)):
+        varPart += getattr(self,pars.DTvarList[i])*pars.DTcoefList[i]
+      #print (pars.DTintercept + varPart)
+      self.Rdt = pars.DTintercept + varPart
+      return self.Rdt
+    def addNoise(self,pars): # possibly has to be moved to a different position. 
+      if pars.addNoise:
+        #print (pars.noiseVarList, pars.noiseModelList, pars.noiseMagnitudeList)
+        tempPD = self.copy()
+        #tempPD.print()
+        for attempt in range(30): ## max number of attempts to find a valid PD
+          #print (attempt)
+          for i in range(len(pars.noiseVarList)):
+            p=pars.noiseVarList[i]
+            s=pars.noiseMagnitudeList[i]
+            nm = pars.noiseModelList[i]
+            #try: 
+            val=getattr(self,p)
+            if nm == "AU": ## additive uniform
+              val += rand.uniform(-s,s)
+            if nm == "M": ## log normal: log (X) ~N(0,s)
+              val *= rand.lognormvariate(0,s)
+            if nm == "AN" or nm == "AG": ## additive normal/gaussian
+              val += rand.gauss(0,s)
+            setattr(tempPD,p,max(val,0))  ## possibly do more elaborate validatation, e.g. Rdt <= Rn, Rc, Rn2; Lneck < 1/2 Lpd or Lneck + Lneck2 < Lpd
+            #except:
+              #pass
+          #tempPD.print()
+          if tempPD.realityCheck(pars):
+            self = tempPD 
+            #print ("completed at Attempt", attempt)
+            break
+          ## else: try again.
+          print ("Failed attempt for adding noise: ", attempt)
+          #self.print()
+      return
+    def realityCheck(self,pars):
+      if self.Rn < self.Rdt:
+        return False
+      if pars.PDmodel == "3cyl":
+        if self.Lneck + self.Lneck2 > self.Lpd :
+          return False
+        if self.Rc < self.Rdt:
+          return False
+      if pars.PDmodel == "2cyl":
+        if self.Lneck * 2 > self.Lpd:
+          return False
+        if self.Rc < self.Rdt:
+          return False
+      return True
+    def simplify(self,pars):
+      if pars.PDmodel == "3cyl":
+        return self
+      if pars.PDmodel == "2cyl":
+        if pars.downSample == "avg":
+          if self.Rn2 > 0 or self.Lneck2 > 0:
+            rPD = self.copy()
+            if self.Rn2 > 0:
+              rPD.Rn = 0.5*(self.Rn + self.Rn2)
+            if self.Lneck2 > 0:
+              rPD.Lneck = 0.5*(self.Lneck + self.Lneck2)
+            return rPD
+          return self
+        elif pars.downSample == "sample":
+          if self.Rn2 > 0:
+            if self.Lneck2 > 0:
+              if rand.uniform() > 0.5:
+                rPD = self.copy()
+                rPD.Rn = self.Rn2
+                rPD.Lneck = self.Lneck2
+                return rPD
+          return self
+      if pars.PDmodel == "1cyl":
+        ## do not use central radius to calculate avg radius or so. 
+        print ("simplification to 1cyl model not yet implemented. Using Rn.")
+        return self
+      print ("PD cannot be simplified: ", pars.PDmodel)
+      return self
+
+class PDdata():
+  def __init__(self):
+    self.RdtAvg=0 ## removed DT from class PD, because it is unlikely that this can be measured for each PD independenlty.
+    self.RnAvg=0
+    self.Rn2Avg=0
+    self.RcAvg=0
+    self.LpdAvg=0
+    self.LneckAvg=0
+    self.Lneck2Avg=0
+
+  def read(self,pars):
+    #self.allLists=["LpdList", "RnList", "RcList", "RdtList", "LneckList","Lneck2List","Rn2List"]
+    self.allLists=["LpdList", "RnList", "RcList", "LneckList","Lneck2List","Rn2List"]
+    self.PDdataDict={tag:[0,0,0,getattr(pars,tag)] for tag in self.allLists}
+    ## [nAll,nReal,Avg, ...List]
+    for key in self.PDdataDict:
+      ll = self.PDdataDict[key]
+      ll[0] = len(ll[3])
+      for i in range(ll[0]):
+        if ll[3][i] == pars.noData:
+          ll[3][i] = 0
+        if ll[3][i] > 0:
+          ll[2] += ll[3][i]
+          ll[1] += 1
+      print (key)
+      if ll[0] > 0:
+        ll[2] /= ll[1]
+      print (ll)
+      print (self.PDdataDict[key])
+  
+  def processData(self,pars):
+    for key in self.PDdataDict:
+      setattr(self,key[:-4]+"Avg",self.PDdataDict[key][2])
+
+  def fillRdt(self,pars,val=-1):
+    if val>0:
+      self.RdtAvg=val
+      self.PDdataDict["RdtList"] = [1,1,val,[val]]
+
+  def startup(self,pars,RdtValue=-1):
+    self.read(pars)
+    stop= self.checkData(pars)
+    if stop:
+      return stop
+    self.processData(pars)
+    self.fillRdt(pars,RdtValue)
+
+  def samplePar(self,tag):
+    if tag in self.constPars:
+      return getattr(self,tag+"Avg")
+    else:
+      return rand.choice(self.PDdataDict[tag+"List"][3])
+
+
+class PDdataStructured(PDdata):
+  def __init__(self):
+    #self.RdtAvg=0 ## removed DT from class PD, because it is unlikely that this can be measured for each PD independenlty.
+    #self.RnAvg=0
+    #self.Rn2Avg=0
+    #self.RcAvg=0
+    #self.LpdAvg=0
+    #self.LneckAvg=0
+    #self.Lneck2Avg=0
+    super().__init__()
+    self.complete1=[]
+    self.nComplete1=0
+    self.complete2=[]
+    self.nComplete2=0
+    self.complete3=[]
+    self.nComplete3=0
+    self.partial=[]
+    self.nPartial=0
+    self.hasMissingData = False
+
+  #def read(self,pars):
+    ##self.allLists=["LpdList", "RnList", "RcList", "RdtList", "LneckList","Lneck2List","Rn2List"]
+    #self.allLists=["LpdList", "RnList", "RcList", "LneckList","Lneck2List","Rn2List"]
+    #self.PDdataDict={tag:[0,0,0,getattr(pars,tag)] for tag in self.allLists}
+    ### [nAll,nReal,Avg, ...List]
+    #for key in self.PDdataDict:
+      #ll = self.PDdataDict[key]
+      #ll[0] = len(ll[3])
+      #for i in range(ll[0]):
+        #if ll[3][i] == pars.noData:
+          #ll[3][i] = 0
+        #if ll[3][i] > 0:
+          #ll[2] += ll[3][i]
+          #ll[1] += 1
+      #print (key)
+      #if ll[0] > 0:
+        #ll[2] /= ll[1]
+      #print (ll)
+      #print (self.PDdataDict[key])
+
+  def checkData(self,pars):
+    if pars.PDmodel == "1cyl":
+      #requiredLists=["LpdList", "RnList", "RdtList", "LneckList"]
+      requiredLists=["LpdList", "RnList", "LneckList"]
+    if pars.PDmodel == "2cyl":
+      #requiredLists=["LpdList", "RnList", "RcList", "RdtList", "LneckList"]
+      requiredLists=["LpdList", "RnList", "RcList", "LneckList"]
+    if pars.PDmodel == "3cyl":
+      #requiredLists=["LpdList", "RnList", "RcList", "RdtList", "LneckList","Lneck2List","Rn2List"]
+      requiredLists=["LpdList", "RnList", "RcList", "LneckList","Lneck2List","Rn2List"]
+    #self.nPDs = max(len(pars.LpdList),len(pars.RnList),len(pars.RcList),len(pars.RdtList),len(pars.LneckList),len(pars.Lneck2List),len(pars.Rn2List))
+    #self.nPDs = max([len(getattr(pars,tag)) for tag in requiredLists])
+    self.nPDs = max([self.PDdataDict[tag][0] for tag in requiredLists])
+    bad=False
+    self.constPars=[]
+    self.listPars=[]
+    for key in requiredLists:
+      if self.PDdataDict[key][0] == 1:
+        self.constPars.append(key)
+      elif self.PDdataDict[key][0] == self.nPDs:
+        self.listPars.append(key)
+      else:
+        print ("PD data validation: wrong number of items for ", key, ": should be 1 or ", str(self.nPDs), "\n")
+        bad=True
+    if len(pars.RdtList) == 0 and not pars.DTformula:
+      bad=True
+    if bad:
+      return 1
+    return 0
+  
+  def processData(self,pars):
+  ## get data in good format ## class PD.
+    #def __init__(self,rdt=0,lpd=0,rn=0,ln=0,rc=0,rn2=0,ln2=0)
+    #def __init__(self,lpd=0,rn=0,ln=0,rc=0,rn2=0,ln2=0)
+    ## possibly add to class: Punit (-1 if not computed), per PD model; bool isComplete (or list)
+  ## identify complete data
+    constPD = PD()
+    for c in self.constPars:
+      setattr(constPD,c[:-4],getattr(pars,c)[0]) ## remove trailing end "List"
+      #setattr(self,c[:-4]+"Avg",getattr(pars,c)[0])  ## superfluous.
+    for i in range(self.nPDs):
+      newPD = deepcopy(constPD)
+      for p in self.listPars:
+        setattr(newPD,p[:-4],self.PDdataDict[p][3][i])
+      if not newPD.checkComplete():
+        self.partial.append(newPD)
+        self.hasMissingData = True
+      else:
+        if newPD.isComplete["3cyl"]:
+          self.complete3.append(newPD)
+        elif newPD.isComplete["2cyl"]:  ## question: include PDs in multiple lists, or just one?
+          self.complete2.append(newPD)
+        else:
+          self.complete1.append(newPD)
+    if pars.PDmodel == "3cyl":
+      if len(self.complete2) + len(self.complete1) > 0:
+        self.hasMissingData = True
+    if pars.PDmodel == "2cyl":
+      if len(self.complete1) > 0:
+        self.hasMissingData = True
+    self.nComplete3 = len(self.complete3)
+    self.nComplete2 = len(self.complete2)
+    self.nComplete1 = len(self.complete1)
+    self.nPartial = len(self.partial)
+    super().processData(pars)
+    #for key in self.PDdataDict:
+      #setattr(self,key[:-4]+"Avg",self.PDdataDict[key][2])
+    #self.nPDsClass={tag:len(getattr(self,tag)) for tag in ["partial"]+pars.PDmodelOptions} ## TODO if necessary: fix.
+    ## HIER: calculate parameter avg for complete PDs for each model; couple to generating compact resampling sets per parameter.
+      #constPD.print()    
+      #newPD.print()    
+    #print(self.partial)
+    #print(self.complete1)
+    #print(self.complete2)
+    #print(self.complete3)
+
+  #def startup(self,pars):
+    #self.read(pars)
+    #stop= self.checkData(pars)
+    #if stop:
+      #return stop
+    #self.processData(pars)
+
+  def fillRdt(self,pars,val=-1):
+    super().fillRdt(pars,val)
+    if pars.DTformula:
+      self.PDdataDict["RdtList"] = [0,0,0,[]]
+      for pd in self.complete1 + self.complete2 + self.complete3 + self.partial:
+        try:
+          #pd.calcRdt(pars)
+          #self.PDdataDict["RdtList"][3].append(pd.Rdt)
+          self.PDdataDict["RdtList"][3].append(pd.calcRdt(pars)) ## calcRdt fills pd.Rdt and returns Rdt. 
+          self.PDdataDict["RdtList"][0] += 1
+          self.PDdataDict["RdtList"][1] += 1
+          self.PDdataDict["RdtList"][2] += pd.Rdt
+        except:
+          pass
+      self.PDdataDict["RdtList"][2] /= self.PDdataDict["RdtList"][0] 
+      self.RdtAvg = self.PDdataDict["RdtList"][2] 
+    elif val > 0:
+      for pd in self.complete1 + self.complete2 + self.complete3 + self.partial:
+        pd.Rdt = val
+    return
+
+
+  def samplePD(self,model,pars,complete=True):
+    if complete:
+      #if model == "1cyl":
+        #relevant = self.complete3 + self.complete2 + self.complete1
+      #if model == "2cyl":
+        #relevant = self.complete3 + self.complete2
+      #if model == "3cyl":
+        #relevant = self.complete3 
+      #if pars.DTformula:
+        #return deepcopy(rand.choice(relevant)).simplify(pars)
+      #return rand.choice(relevant).simplify(pars)
+      if pars.DTformula:
+        return deepcopy(rand.choice(self.getCompleteList(model))).simplify(pars)
+      return rand.choice(self.getCompleteList(model)).simplify(pars)
+    else:
+      mustSimplify = False
+      ni = rand.randrange(self.nPDs)
+      if ni < self.nComplete1:
+        # 1-cyl model never has to be simplified
+        if pars.DTformula:
+          return deepcopy(self.complete1[ni])
+        return self.complete1[ni]
+      #if model == "1cyl":
+        #mustSimplify = True
+      ni -= self.nComplete1
+      if ni < self.nComplete2:
+        if pars.DTformula:# or mustSimplify:
+          return deepcopy(self.complete2[ni]).simplify(pars)
+        return self.complete2[ni].simplify(pars)
+      #if model == "2cyl":
+        #mustSimplify = True
+      ni -= self.nComplete2
+      if ni < self.nComplete3:
+        if pars.DTformula or mustSimplify:
+          return deepcopy(self.complete3[ni]).simplify(pars)
+        return self.complete3[ni].simplify(pars)
+      ni -= self.nComplete3
+      return deepcopy(self.partial[ni]).makeComplete(self,pars)
+
+
+  def getCompleteList(self,model):
+    if model == "1cyl":
+      return (self.complete3 + self.complete2 + self.complete1)
+    if model == "2cyl":
+      return (self.complete3 + self.complete2)
+    if model == "3cyl":
+      return (self.complete3)
+    else:
+      print ("Unknown PDmodel: ", model)
+      return [] 
+    
+  def avgPar(self,tag):
+    return getattr(self,tag+"Avg")
+  def makeAvgPD_all(self):
+    return PD(self.RdtAvg,self.LpdAvg,self.RnAvg,self.LneckAvg,self.RcAvg,self.Rn2Avg,self.Lneck2Avg)
+    #return PD(self.LpdAvg,self.RnAvg,self.LneckAvg,self.RcAvg,self.Rn2Avg,self.Lneck2Avg)
+  def makeAvgPD_complete(self,model):
+    nn = 0
+    rdt = 0.
+    lpd = 0.
+    rn = 0.
+    lneck= 0.
+    rc = 0.
+    rn2= 0.
+    lneck2 = 0.
+    for i in self.complete3:
+      rdt += i.Rdt
+      lpd += i.Lpd
+      rn += i.Rn
+      lneck += i.Lneck
+      rc += i.Rc
+      rn2 += i.Rn2
+      lneck2 += i.Lneck2
+      nn += 1
+    if model == "3cyl":
+      return PD(rdt/nn,lpd/nn,rn/nn,lneck/nn,rc/nn,rn2/nn,lneck2/nn)
+      #return PD(lpd/nn,rn/nn,lneck/nn,rc/nn,rn2/nn,lneck2/nn)
+    if nn > 0:
+      rn2/=nn
+      lneck2/=nn
+    for i in self.complete2:
+      rdt += i.Rdt
+      lpd += i.Lpd
+      rn += i.Rn
+      lneck += i.Lneck
+      rc += i.Rc
+      # assume not specified for 2cyl only models
+      #rn2 += i.Rn2
+      #lneck2 += i.Lneck2
+      nn += 1
+    if model == "2cyl":
+      return PD(rdt/nn,lpd/nn,rn/nn,lneck/nn,rc/nn,rn2,lneck2)
+      #return PD(lpd/nn,rn/nn,lneck/nn,rc/nn,rn2,lneck2)
+    if nn > 0:
+      lneck /= nn
+      rc /= nn
+    for i in self.complete1:
+      rdt += i.Rdt
+      lpd += i.Lpd
+      rn += i.Rn
+      nn += 1
+    return PD(rdt/nn,lpd/nn,rn/nn,lneck,rc,rn2,lneck2)
+    #return PD(lpd/nn,rn/nn,lneck,rc,rn2,lneck2)
+
+class PDdataUnstructured(PDdata):
+  def __init__(self):
+    super().__init__()
+    #self.RdtAvg=0 ## removed DT from class PD, because it is unlikely that this can be measured for each PD independenlty. ; later returned because of calcRdt. 
+    #self.RnAvg=0
+    #self.Rn2Avg=0
+    #self.RcAvg=0
+    #self.LpdAvg=0
+    #self.LneckAvg=0
+    #self.Lneck2Avg=0
+
+  def read(self,pars):
+    super().read(pars)
+    # remove missing data zeros
+    for key in self.PDdataDict:
+      ll = self.PDdataDict[key]
+      changed = False
+      while ll[0] > ll[1]:
+        ll[3].remove(0)
+        ll[0] -= 1
+        changed = True
+      if changed:
+        print (self.PDdataDict[key])
+    ##self.allLists=["LpdList", "RnList", "RcList", "RdtList", "LneckList","Lneck2List","Rn2List"]
+    #self.allLists=["LpdList", "RnList", "RcList", "LneckList","Lneck2List","Rn2List"]
+    #self.PDdataDict={tag:[0,0,0,getattr(pars,tag)] for tag in self.allLists}
+    ### [nAll,nReal,Avg, ...List]
+    #for key in self.PDdataDict:
+      #ll = self.PDdataDict[key]
+      #ll[0] = len(ll[3])
+      #for i in range(ll[0]):
+        #if ll[3][i] == pars.noData:
+          #ll[3][i] = 0
+        #if ll[3][i] > 0:
+          #ll[2] += ll[3][i]
+          #ll[1] += 1
+      #print (key)
+      #if ll[0] > 0:
+        #ll[2] /= ll[1]
+      #print (ll)
+      #print (self.PDdataDict[key])
+
+  def checkData(self,pars):
+    if pars.PDmodel == "1cyl":
+      #requiredLists=["LpdList", "RnList", "RdtList", "LneckList"]
+      requiredLists=["LpdList", "RnList", "LneckList"]
+    if pars.PDmodel == "2cyl":
+      #requiredLists=["LpdList", "RnList", "RcList", "RdtList", "LneckList"]
+      requiredLists=["LpdList", "RnList", "RcList", "LneckList"]
+    if pars.PDmodel == "3cyl":
+      #requiredLists=["LpdList", "RnList", "RcList", "RdtList", "LneckList","Lneck2List","Rn2List"]
+      requiredLists=["LpdList", "RnList", "RcList", "LneckList","Lneck2List","Rn2List"]
+    self.nPDs = max([self.PDdataDict[tag][0] for tag in requiredLists])
+    bad=False
+    self.constPars=[]
+    self.listPars=[]
+    for key in requiredLists:
+      if self.PDdataDict[key][0] == 1:
+        self.constPars.append(key)
+      elif self.PDdataDict[key][0] > 1:
+        self.listPars.append(key)
+      else:
+        print ("PD data validation: no items for ", key, str(self.nPDs), "\n")
+        bad=True
+    if bad:
+      return 1
+    return 0
+  
+  #def processData(self,pars):
+  ### get data in good format ## class PD.
+    ##def __init__(self,rdt=0,lpd=0,rn=0,ln=0,rc=0,rn2=0,ln2=0)
+    ##def __init__(self,lpd=0,rn=0,ln=0,rc=0,rn2=0,ln2=0)
+    ### possibly add to class: Punit (-1 if not computed), per PD model; bool isComplete (or list)
+    #for key in self.PDdataDict:
+      #setattr(self,key[:-4]+"Avg",self.PDdataDict[key][2])
+
+  def fillRdt(self,pars,val=-1):
+    super().fillRdt(pars,val)
+    if pars.DTformula:
+      self.RdtAvg = self.makeAvgPD_all().calcRdt(pars) 
+
+  #def startup(self,pars):
+    #self.read(pars)
+    #stop= self.checkData(pars)
+    #if stop:
+      #return stop
+    #self.processData(pars)
+  
+  #def samplePar(self,tag):
+    #if tag in self.constPars:
+      #return getattr(self,tag+"Avg")
+    #else:
+      #return rand.choice(self.PDdataDict[tag+"List"][3])
+  def samplePD(self,model,pars,complete=True):
+    pd = PD()
+    if model == "3cyl":
+      parList=["Lpd", "Rn", "Rc", "Lneck","Lneck2","Rn2"]
+    if model == "2cyl":
+      parList=["Lpd", "Rn", "Rc", "Lneck"]
+    if model == "1cyl":
+      parList=["Lpd", "Rn"]
+    for p in parList:
+      setattr(pd,p,self.samplePar(p))
+    if pars.DTformula:
+      pd.calcRdt(pars)
+    else:
+      pd.Rdt = self.RdtAvg
+    return pd
+    
+  def avgPar(self,tag):
+    return getattr(self,tag+"Avg")
+  def makeAvgPD_all(self):
+    return PD(self.RdtAvg,self.LpdAvg,self.RnAvg,self.LneckAvg,self.RcAvg,self.Rn2Avg,self.Lneck2Avg)
+    #return PD(self.LpdAvg,self.RnAvg,self.LneckAvg,self.RcAvg,self.Rn2Avg,self.Lneck2Avg)
 
 
 def main(parfile):
@@ -294,6 +916,14 @@ def main(parfile):
   ## Calculate values of Punit, based on input parameters, varying R_nr (from RnList), Rc insofar > Rn (from RcList); Fih=1, density = 1 PD/um2
   if pars.computeUnitVals:
     computePunitValues(pars)
+
+  ## Calculate values of Peff for all data using all complete PDs. Also compute Punit for all complete PDs and Peff based on averages of all data (as a reference). 
+  if pars.singleInterface:
+    analyzeSingleInterface(pars)
+
+  ## Calculate value of Peff using all complete data + confidence intervals based on resampling on all complete data and/or all data.
+  if pars.bootstrapInterface:
+    performBootstrap(pars)
 
   ## calculate required densities for Peff targets in peList and alpha_bar values in xMaxList
   ## uses cfDict, so this must be initialized before calling the function below.
@@ -339,7 +969,6 @@ def main(parfile):
       printTargetDensitiesStraightPD(pars.Rdt,pars.x,arange(pars.xStart,pars.xMax,pars.xStep),[pars.peList[i]],pars.diff,pars.Lpd,pars.Lcell,pars.grid,pars.Lneck,pars.dInc,{},pars.colSep,True,True) # 2x True at the end: no blank lines within file for easier plotting ; include Rn in output.
       outfile.close()
       sys.stdout = sys.__stdout__
-
 
   ## function used for verifying Fih for sub-nano channel model
   # density used is the first number of densList
@@ -398,8 +1027,285 @@ def main(parfile):
     outfile.close()
     sys.stdout = sys.__stdout__
   ## conclusion: Fih for the sub-nano channel model is computed reasonably for alpha_bar up to ~15 nm (density 10 or 13 PDs/um2). Results with larger alpha_bar should not be used.
-
   return
+
+def performBootstrap(pars):
+  fName="bootstrapInterface_"+pars.fileTag+"."+pars.fileExt
+  outfile=open(fName, 'w')
+  sys.stdout = outfile
+  if pars.DTformula:
+    #RdtList = []
+    pars.RdtList = [pars.RdtList[0]] ## better done in a check step. 
+  if pars.randomSeed >= 0:
+    rand.seed(pars.randomSeed)
+  else:
+    rand.seed()
+  if pars.doNotCombine:
+    dataPDs={rdt:PDdataStructured() for rdt in pars.RdtList}
+  else:
+    dataPDs={rdt:PDdataUnstructured() for rdt in pars.RdtList}
+  for rdt in pars.RdtList:
+    dataPDs[rdt].startup(pars,rdt)
+  if pars.doNotCombine:
+    print ("\n## Resampling complete PDs")
+  else:
+    print ("\n## Unstructured Resampling")
+  PeffDict,RdtList = bootstrapResample(dataPDs,pars,True)
+  bootstrapReport(dataPDs,PeffDict,RdtList,pars)
+  if pars.doNotCombine and dataPDs[pars.RdtList[0]].hasMissingData:
+    print ("\n## Resampling all data")
+    PeffDict,RdtList = bootstrapResample(dataPDs,pars,False)
+    bootstrapReport(dataPDs,PeffDict,RdtList,pars)
+  outfile.close()
+  sys.stdout = sys.__stdout__
+  return 
+
+def bootstrapResample(dataPDs,pars,completeOnly):
+  ab=[0,0]
+  getAB(ab,pars.grid)
+  distDict=getDistDict() 
+  PeffDict={rdt:[] for rdt in pars.RdtList}
+  RdtList = []
+  if pars.bootstrapSingleSampleSize <= 0:
+    samSize =  dataPDs[pars.RdtList[0]].nPDs
+  else:
+    samSize =  pars.bootstrapSingleSampleSize 
+  print ("#Sample size:", samSize)
+  for rdt in pars.RdtList:
+    for n in range(pars.bootstrapSamples):
+      resampledPDs = []
+      ## resample interface
+      for nn in range(samSize):
+        resampledPDs.append(dataPDs[rdt].samplePD(pars.PDmodel,pars,completeOnly)) 
+        if pars.addNoise:
+          resampledPDs[-1].addNoise(pars)
+      ## compute Peff (compact format)
+      PeffDict[rdt].append(computePeffInterface(resampledPDs,pars,ab[0],ab[1],distDict))
+      ## if calculated, collect Rdt values. Assume all can be piled over all samples
+      if pars.DTformula:
+        RdtList += [pd.calcRdt(pars) for pd in resampledPDs]
+  return PeffDict,RdtList
+
+def bootstrapReport(dataPDs,PeffDict,RdtList,pars):
+  ## compute confidence intervals
+  if pars.DTformula:
+    RdtList.sort() 
+    print ("\nRdt Values: (percentile, value)")
+    percentiles = [ (1.-pars.CIlevel)*0.5, 0.25, 0.5, 0.75, pars.CIlevel+(1.-pars.CIlevel)*0.5] 
+    nVal = len(RdtList)
+    for p in percentiles:
+      print ( p*100, RdtList[int(p*nVal)])
+  for rdt in pars.RdtList:
+    PeffDict[rdt].sort()
+  ## TODO: optional: implement more refined methods for calculating n% CI
+  lowID = int((1.-pars.CIlevel)*0.5*pars.bootstrapSamples) ## TODO: check docs to verify this is rounding down
+  medianID = int(pars.bootstrapSamples/2)
+  highID = int((pars.CIlevel+(1.-pars.CIlevel)*0.5)*pars.bootstrapSamples) ## TODO: check docs to verify this is rounding down
+  for rdt in pars.RdtList:
+    if pars.DTformula:
+      print ("#\nRdt from statistical model")
+    else:
+      print ("#\nRdt", rdt)
+    printSingleInterfaceHeader(pars)
+    #print ("\n## Densities used in calculation of Peff (PDs/um2):", pars.colSep.join([str(i/pars.listFactorFloats["densList"]) for i in pars.densList])) 
+    print ("Median bootstrap Peff values n=",pars.bootstrapSamples,":", pars.colSep.join([str(i) for i in PeffDict[rdt][medianID] for rdt in pars.RdtList]))
+    print ("Bootstrap Peff Lower bound (CL: ",(1.-pars.CIlevel)*0.5,"): ", pars.colSep.join([str(i) for i in PeffDict[rdt][lowID] for rdt in pars.RdtList]))
+    print ("Bootstrap Peff Upper bound (CL: ",pars.CIlevel+(1.-pars.CIlevel)*0.5,"): ", pars.colSep.join([str(i) for i in PeffDict[rdt][highID] for rdt in pars.RdtList]))
+  return
+
+def analyzeSingleInterface(pars):
+  fName="singleInterface_"+pars.fileTag+"."+pars.fileExt
+  outfile=open(fName, 'w')
+  sys.stdout = outfile
+  ab=[0,0]
+  getAB(ab,pars.grid)
+  distDict=getDistDict()
+  if pars.DTformula:
+    RdtList = []
+    pars.RdtList = [pars.RdtList[0]] ## better done in a check step. 
+  PeffDict={rdt:[] for rdt in pars.RdtList}
+  if pars.doNotCombine:
+    #dataPDs=PDdataStructured()
+    dataPDs={rdt:PDdataStructured() for rdt in pars.RdtList}
+  else:
+    dataPDs={rdt:PDdataUnstructured() for rdt in pars.RdtList}
+  for rdt in pars.RdtList:
+    dataPDs[rdt].startup(pars,rdt)
+  #if pars.doNotCombine:
+    #dataPDs=PDdataStructured()
+  #else:
+    #dataPDs=PDdataUnstructured()
+  #dataPDs.startup(pars)
+  #printSingleInterfaceHeader(pars)
+  for rdt in pars.RdtList:
+    if pars.doNotCombine:
+      completePDs=dataPDs[rdt].getCompleteList(pars.PDmodel)
+      PeffAll = computePeffInterface(completePDs,pars,ab[0],ab[1],distDict,True)
+      ## compute Punit for all complete PDs, incl relative contribution to Peff
+      # done in above function
+      ## compute Peff based on all complete PDs
+      #print ("\n## Densities used in calculation of Peff (PDs/um2):", pars.colSep.join([str(i/pars.listFactorFloats["densList"]) for i in pars.densList])) 
+  #if pars.doNotCombine:
+      printSingleInterfaceHeader(pars)
+      print ("Peff based on all the complete PDs:", pars.colSep.join([str(i) for i in PeffAll])) 
+      dataPDs[rdt].makeAvgPD_complete(pars.PDmodel).print()
+      print ("Peff based on averages of complete PDs:", pars.colSep.join([str(i) for i in computePeffInterface([dataPDs[rdt].makeAvgPD_complete(pars.PDmodel)],pars,ab[0],ab[1],distDict)]))
+  #else: (applied only to printing of data)
+    dataPDs[rdt].makeAvgPD_all().print()
+    print ("Peff based on averages of all data:", pars.colSep.join([str(i) for i in computePeffInterface([dataPDs[rdt].makeAvgPD_all()],pars,ab[0],ab[1],distDict)]))
+    #Peff_pitField(x,Rn,D,Lpd,Lcell,dens,A,B,Rdt,Rc,Lneck,Rpit,nPit):
+    #Peff_pitField_asym(x,Rn,Rn2,D,Lpd,Lcell,dens,A,B,Rdt,Rc,Lneck,Lneck2,Rpit,nPit):
+  ## compute Peff based on per parameter averages (complete data sets only + all data)
+  ## report other useful blah.
+  outfile.close()
+  sys.stdout = sys.__stdout__
+  return
+
+def printSingleInterfaceHeader(pars):
+  #HIER
+  #if pars.DTformula:
+    #print ("\n##Densities used in calculation of Peff (PDs/um2_nm):", pars.colSep.join([str(i/pars.listFactorFloats["densList"]) for i in pars.densList ])) 
+  #else:
+    #print ("\n##Densities_Rdt used in calculation of Peff (PDs/um2_nm):", pars.colSep.join([str(i/pars.listFactorFloats["densList"])+"_"+str(j) for i in pars.densList for j in pars.RdtList])) 
+    print ("\n##Densities_clusterSize_dPit used in calculation of Peff (PDs/um2_._nm):", pars.colSep.join([str(i/pars.listFactorFloats["densList"])+"_"+str(j)+"_"+str(k) for i in pars.densList for j in pars.pitList for k in pars.dPitList])) 
+
+def computePeffInterface(PDlist,pars,A,B,distDict,verbose=False):
+  PunitList=[] ## because Rdt no longer in class PD
+  #if pars.DTformula:
+    #PunitList=[[]] ## because Rdt no longer in class PD
+  #else:
+    #PunitList=[[] for rdt in pars.RdtList]
+  ## TODO: RnList, LpdList not necessary as lists, counters also possible
+  RnList=[]
+  LpdList=[]
+  if len(PDlist) == 0:
+    return 0
+  for pd in PDlist:
+    PunitList.append(calcPunit(pd,pars)) 
+    #if pars.DTformula:
+      #PunitList[0].append(calcPunit(pd,pd.calcRdt(pars),pars)) ## !!!!! TODO issue here with "add noise"
+    #else:
+      #for i in range(len(pars.RdtList)):
+        #PunitList[i].append(calcPunit(pd,pars.RdtList[i],pars))
+    RnList.append(calcFihRn(pd,pars.PDmodel)) 
+    LpdList.append(pd.Lpd)
+  #PunitSum=[sum(PunitList[i]) for i in range(len(PunitList))]
+  PunitSum=sum(PunitList)
+  Peff = []
+  for dens in pars.densList:
+    for pit in pars.pitList:
+      for dPit in pars.dPitList:
+        Rpit = getRpitDefault(distDict,mean(RnList),dPit,pit) 
+        if pars.computeClusterIncrease:
+          Peff.append( mean(PunitList) * dens*1e6 * Fih_pitField(pars.x,mean(RnList),pars.diff,mean(LpdList),pars.Lcell,dens,A,B,Rpit,pit)) # avg Punit * dens * Fih(avgRn) ## because Rdt no longer in class PD ## probably undesired behaviour: total dens == dens * pit. 
+        else:
+          Peff.append( mean(PunitList) * dens/pit*1e6 * Fih_pitField(pars.x,mean(RnList),pars.diff,mean(LpdList),pars.Lcell,dens/pit,A,B,Rpit,pit)) # avg Punit * dens * Fih(avgRn) ## because Rdt no longer in class PD ## probably desired behaviour: total dens = dens
+    #for i in range(len(PunitList)):
+      #Peff.append( mean(PunitList[i]) * dens*1e6 * Fih_pitField(pars.x,mean(RnList),pars.diff,mean(LpdList),pars.Lcell,dens,A,B,Rpit,pars.pitList[0])) # avg Punit * dens * Fih(avgRn)
+    ## remember: density is /nm2
+    #Peff_pitField(x,Rn,D,Lpd,Lcell,dens,A,B,Rdt,Rc,Lneck,Rpit,nPit):
+    #Peff_pitField_asym(x,Rn,Rn2,D,Lpd,Lcell,dens,A,B,Rdt,Rc,Lneck,Lneck2,Rpit,nPit):
+    ## conclusion: write Fih function.
+  if verbose:
+    # output PunitList
+    print("\n## Punit for all individual PDs")
+    print("ID", "Punit", "fraction")
+    if pars.DTformula:
+      print("## DTformula: Rdt = ",pars.DTintercept, " ".join([" ".join(["+",str(pars.DTcoefList[i]), "*",pars.DTvarList[i]]) for i in range(len(pars.DTvarList))]))
+      # old; resurrected: Rdt no longer in class PD
+      for i in range(len(PDlist)):
+        print(str(i), str(PunitList[i]), str(PunitList[i]/PunitSum), PDlist[i].Rdt) # TODO: add PD info
+    else:
+      print("## Rdt: ", PDlist[0].Rdt)
+      # old; resurrected: Rdt no longer in class PD
+      for i in range(len(PDlist)):
+        print(str(i), str(PunitList[i]), str(PunitList[i]/PunitSum)) # TODO: add PD info
+    ## removed: Rdt  back in class PD
+    #for j in range(len(PunitList)):
+      #if pars.DTformula:
+        #print("## DTformula: Rdt = ",pars.DTintercept, " ".join([" ".join(["+",str(pars.DTcoefList[i]), "*",pars.DTvarList[i]]) for i in range(len(pars.DTvarList))]))
+        #for i in range(len(PDlist)):
+          #print(str(i), str(PunitList[j][i]), str(PunitList[j][i]/PunitSum[j]), str(PDlist[i].calcRdt(pars))) # TODO: add PD info
+      #else:
+        #print("## Rdt: ", pars.RdtList[j])
+        #for i in range(len(PDlist)):
+          #print(str(i), str(PunitList[j][i]), str(PunitList[j][i]/PunitSum[j])) # TODO: add PD info
+  return Peff
+
+## TODO: make function of PD
+def calcFihRn(pd,model):
+  # returns: consistent with other data: just avg 2 necks if given. 
+  if model == "3cyl":
+    if pd.Rn2 == 0: ## other option: only use Rn2 if > Rdt
+      return pd.Rn
+    else:
+      return (pd.Rn+pd.Rn2)*0.5
+  return pd.Rn
+
+## TODO: make function of PD
+def calcBestRn(pd,model):
+  # returns: best weighted avg based on model and all available data
+  ## actually better: 1/x avg: Lpd / (sum (Lx/Rx)).
+  ## or more consistent with other data: just avg 2 necks if given. 
+  if model == "1cyl":
+    if pd.Rn2 == 0:
+      if pd.Rc == 0:
+        return pd.Rn
+      else:
+        #return (pd.Rn*pd.Lneck*2 + pd.Rc*(pd.Lpd-2*pd.Lneck))/pd.Lpd
+        return pd.Lpd/(pd.Lneck*2/pd.Rn  + (pd.Lpd-2*pd.Lneck)/pd.Rc)
+    else: # assume Rn2 defined means Rc also defined.
+      #return (pd.Rn*pd.Lneck + pd.Rn2*pd.Lneck2 + pd.Rc*(pd.Lpd-pd.Lneck-pd.Lneck2))/pd.Lpd
+      return pd.Lpd/(pd.Lneck/pd.Rn + pd.Lneck2/pd.Rn2 + (pd.Lpd-pd.Lneck-pd.Lneck2)/pd.Rc)
+  elif model == "2cyl":
+    if pd.Rn2 == 0:
+      return pd.Rn
+    else:
+      #return (pd.Rn*pd.Lneck + pd.Rn2*pd.Lneck2)/(pd.Lneck + pd.Lneck2)
+      return (pd.Lneck + pd.Lneck2)/(pd.Lneck/pd.Rn + pd.Lneck2/pd.Rn2)
+  elif model == "3cyl":
+    #return (pd.Rn*pd.Lneck + pd.Rn2*pd.Lneck2)/(pd.Lneck + pd.Lneck2)
+    return (pd.Lneck + pd.Lneck2)/(pd.Lneck/pd.Rn + pd.Lneck2/pd.Rn2)
+
+
+## TODO: make function of PD
+#def calcPunit(pd,rdt,pars):
+def calcPunit(pd,pars):
+  ## this goes wrong with multiple values for pars.whatever (used: x, D) )
+#  ## Rdt removed from class PD for reasons of experimental difficulties. Entered separately. 
+#  ## option: add value to pd class -> efficiency (if many complete records)
+  #tag=pars.PDmodel+"_"+str(rdt)
+  tag=pars.PDmodel
+  if tag in pd.Punit:
+    return pd.Punit[tag] 
+  if pars.PDmodel == "1cyl":
+    #if pd.Punit["1cyl"] >= 0: 
+      #return pd.Punit["1cyl"] 
+    pe = Punit(pars.x,pd.Rn,pars.diff,pd.Lpd,pd.Rdt,pd.Rn,pd.Lpd/4.) # Lneck is arbitrary here, so do not assume it is defined.
+    #pe = Punit(pars.x,pd.Rn,pars.diff,pd.Lpd,rdt,pd.Rn,pd.Lpd/4.) # Lneck is arbitrary here, so do not assume it is defined.
+    #pd.Punit["1cyl"]  = pe
+    pd.Punit[tag]  = pe
+    return pe
+  elif pars.PDmodel == "2cyl":
+    #if pd.Punit["2cyl"] >= 0: 
+      #return pd.Punit["2cyl"] 
+    pe = Punit(pars.x,pd.Rn,pars.diff,pd.Lpd,pd.Rdt,pd.Rc,pd.Lneck)
+    #pe = Punit(pars.x,pd.Rn,pars.diff,pd.Lpd,rdt,pd.Rc,pd.Lneck)
+    #pd.Punit["2cyl"]  = pe
+    pd.Punit[tag]  = pe
+    return pe
+  elif pars.PDmodel == "3cyl":
+    #if pd.Punit["3cyl"] >= 0: 
+      #return pd.Punit["3cyl"] 
+    pe = PunitAsym(pars.x,pd.Rn,pd.Rn2,pars.diff,pd.Lpd,pd.Rdt,pd.Rc,pd.Lneck,pd.Lneck2) 
+    #pe = PunitAsym(pars.x,pd.Rn,pd.Rn2,pars.diff,pd.Lpd,rdt,pd.Rc,pd.Lneck,pd.Lneck2) 
+    #pd.Punit["3cyl"]  = pe
+    pd.Punit[tag]  = pe
+    return pe
+  else:
+    print ("PD model", pars.PDmodel, "not defined.")
+    return 0
+
 
 def performSensitivityAnalysis(pars):
   ab=[0,0]
@@ -636,7 +1542,7 @@ def Peff_MakTrap_pitField(x,Rn,D,Lpd,Lcell,dens,A,B,Rpit,nCyl):
 def Peff_naive(x,Rn,D,Lpd,dens,Rdt,Rc,Lneck):
   # effective permeability without correction factor f_ih, including desmotubule and Rc >= Rn
   #return dens*D*ttA(Rn,x,Rdt)*ttA(Rc,x,Rdt)/(2.*(Lneck+x)*ttA(Rc,x,Rdt)+(Lpd-2.*(Lneck+x))*ttA(Rn,x,Rdt) )
-  if Rdt >= Rn:
+  if Rdt + 2.*x >= Rn:
     return 0.
   return dens*D*ttA(Rn,x,Rdt)*ttA(Rc,x,Rdt)/(2.*(Lneck+x)*ttA(Rc,x,Rdt)+(Lpd-2.*(Lneck+x))*ttA(Rn,x,Rdt) )
 
@@ -648,7 +1554,7 @@ def Punit(x,Rn,D,Lpd,Rdt,Rc,Lneck):
 def Peff_naive_asym(x,Rn,Rn2,D,Lpd,dens,Rdt,Rc,Lneck,Lneck2):
   # effective permeability without correction factor f_ih, including desmotubule and Rc >= Rn
   #return dens*D*ttA(Rn,x,Rdt)*ttA(Rc,x,Rdt)/(2.*(Lneck+x)*ttA(Rc,x,Rdt)+(Lpd-2.*(Lneck+x))*ttA(Rn,x,Rdt) )
-  if Rdt >= Rn:
+  if Rdt + 2*x >= min(Rn,Rn2):
     return 0.
   return dens*D/((Lneck+x)/ttA(Rn,x,Rdt)+ (Lneck2+x)/ttA(Rn2,x,Rdt)+ (Lpd-(Lneck+Lneck2+2.*x))/ttA(Rc,x,Rdt) )
 
@@ -706,6 +1612,13 @@ def Peff_pitField_asym(x,Rn,Rn2,D,Lpd,Lcell,dens,A,B,Rdt,Rc,Lneck,Lneck2,Rpit,nP
     return -1
   return 1e-3* Peff_naive_asym(x,Rn,Rn2,D,Lpd,dens,Rdt,Rc,Lneck,Lneck2) * FihP 
 
+def Fih_pitField(x,RnAvg,D,Lpd,Lcell,dens,A,B,Rpit,nPit):
+    if nPit == 1:
+      # from Peff_asym (equiv: Peff)
+      return Peff_MakTrap(x,RnAvg,D,Lpd,Lcell,dens,A,B) / Peff_naive_cyl(x,RnAvg,D,Lpd,dens)
+    #from Peff_pitField_asym above
+    return Peff_MakTrap_pitField(x,RnAvg,D,Lpd,Lcell,dens,A,B,Rpit,nPit) /  Peff_naive_cyl(x,RnAvg,D,Lpd,dens)
+
 
 def Rn_multiCyl(xMax,Rdt,nCyl):
   ## calculates Rn for sub-nano model. Minimum requirement: 1 nm spacers between cylindrical sub-nano channels. This requirement may cause Rn > Rdt + 2*xMax. 
@@ -761,6 +1674,9 @@ def compFih(x,D,Lpd,Lcell,dens,grid,Rdt):
     
 def getDistDict():
   return {1:0,2:0.5, 3:sqrt(3.)/3,4:sqrt(2.)/2.,5:1.,6:2.*sqrt(3.)/3,7:1.,12:sqrt(13.)/3., 19:2.} # actual Pit Radius: dPit * distDict[x] + Rn
+
+def getRpitDefault(distDict,Rn,dPit,nPit):
+  return Rn + distDict[nPit]*dPit
 
 def compFih_pitField(x,D,Lpd,Lcell,dens,grid,Rdt,pitList,dPit):
   #distDict={1:0,2:0.5, 3:sqrt(3.)/3,4:sqrt(2.)/2.,6:2.*sqrt(3.)/3,7:1.,12:sqrt(13.)/3., 19:2.} # actual Pit Radius: dPit * distDict[x] + Rn
@@ -894,7 +1810,8 @@ def  computePeffValues(pars):
   sys.stdout = outfile
   print("## Calculated values of Peff, given all parameters. ")
   print("## Computations with computeClusterIncrease ==",pars.computeClusterIncrease, "(False: Rho = total PD density; True: Rho = PD cluster density, total PD density = Rho * n_cluster)")
-  if pars.doNotCombine and pars.asymmetricPDs:
+  #if pars.doNotCombine and pars.asymmetricPDs:
+  if pars.asymmetricPDs:
       print("# alpha"+pars.colSep+"Rho"+pars.colSep+"n_cluster"+pars.colSep+"alpha_bar"+pars.colSep+"Rn"+pars.colSep+"Rn2"+pars.colSep+"Rc"+pars.colSep+"Rdt"+pars.colSep+"Lpd"+pars.colSep+"Lneck"+pars.colSep+"Lneck2"+pars.colSep+"dPit"+pars.colSep+"Peff_default")
   else:
     if pars.compSubNano:
@@ -977,40 +1894,79 @@ def  computePeffValues(pars):
           else:
             print(pars.colSep.join(str(s) for s in [pars.x, localPars.dens*1e6, localPars.pit, localPars.xMax, localPars.Rc, localPars.Rdt, localPars.Lpd, localPars.Lneck, localPars.dPit, pe]))
   else:
-    for Lpd in pars.LpdList:
-      for Lneck in pars.LneckList:
-        for dd in pars.densList:
-          for xMax in pars.xMaxList:
-            gotit = False
-            for Rdt in pars.RdtList:
-              for Rc in pars.RcList: ## TODO
-                Rn = xMax *2.+Rdt
-                if Rc < Rn:
-                  if gotit:
-                    continue
-                  gotit=True
-                  Rc = Rn
-                for nPit in pars.pitList:
-                  for dPit in pars.dPitList:
-                    Rpit = Rn + distDict[nPit]*dPit
-                    if pars.computeClusterIncrease:
-                      pe = Peff_pitField(pars.x,Rn,pars.diff,Lpd,pars.Lcell,dd,ab[0],ab[1],Rdt,Rc,Lneck,Rpit,nPit)
-                    else: 
-                      pe = Peff_pitField(pars.x,Rn,pars.diff,Lpd,pars.Lcell,dd/nPit,ab[0],ab[1],Rdt,Rc,Lneck,Rpit,nPit)
-                    if pars.compSubNano:
-                      ## NOTE: computed for straight channel; Rc does not take any effect here. 
-                      if pars.computeClusterIncrease:
-                        peSN =  Peff_multiCyl_pitField(pars.x,xMax,pars.diff,Lpd,pars.Lcell,dd,ab[0],ab[1],Rdt,9,Rpit,nPit)
-                      else: 
-                        peSN =  Peff_multiCyl_pitField(pars.x,xMax,pars.diff,Lpd,pars.Lcell,dd/nPit,ab[0],ab[1],Rdt,9,Rpit,nPit)
-                      print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rn, Rc, Rdt, Lpd, Lneck, dPit, pe,Rn_multiCyl(xMax,Rdt,9), peSN]))
-                    else:
-                      if pars.printRn:
-                        print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rn, Rc, Rdt, Lpd, Lneck, dPit, pe]))
-                      else:
-                        print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rc, Rdt, Lpd, Lneck, dPit, pe]))
+    if pars.compSubNano:
+      for Lpd in pars.LpdList:
+        for Lneck in pars.LneckList:
+          for dd in pars.densList:
+            for xMax in pars.xMaxList:
               gotit = False
-        print("")
+              for Rdt in pars.RdtList:
+                for Rc in pars.RcList: ## TODO
+                  Rn = xMax *2.+Rdt
+                  if Rc < Rn:
+                    if gotit:
+                      continue
+                    gotit=True
+                    Rc = Rn
+                  for nPit in pars.pitList:
+                    for dPit in pars.dPitList:
+                      Rpit = Rn + distDict[nPit]*dPit
+                      if pars.computeClusterIncrease:
+                        pe = Peff_pitField(pars.x,Rn,pars.diff,Lpd,pars.Lcell,dd,ab[0],ab[1],Rdt,Rc,Lneck,Rpit,nPit)
+                      else: 
+                        pe = Peff_pitField(pars.x,Rn,pars.diff,Lpd,pars.Lcell,dd/nPit,ab[0],ab[1],Rdt,Rc,Lneck,Rpit,nPit)
+                      if pars.compSubNano:
+                        ## NOTE: computed for straight channel; Rc does not take any effect here. 
+                        if pars.computeClusterIncrease:
+                          peSN =  Peff_multiCyl_pitField(pars.x,xMax,pars.diff,Lpd,pars.Lcell,dd,ab[0],ab[1],Rdt,9,Rpit,nPit)
+                        else: 
+                          peSN =  Peff_multiCyl_pitField(pars.x,xMax,pars.diff,Lpd,pars.Lcell,dd/nPit,ab[0],ab[1],Rdt,9,Rpit,nPit)
+                        print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rn, Rc, Rdt, Lpd, Lneck, dPit, pe,Rn_multiCyl(xMax,Rdt,9), peSN]))
+                      else:
+                        if pars.printRn:
+                          print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rn, Rc, Rdt, Lpd, Lneck, dPit, pe]))
+                        else:
+                          print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rc, Rdt, Lpd, Lneck, dPit, pe]))
+                gotit = False
+          print("")
+    else:
+      for Lpd in pars.LpdList:
+        for Lneck in pars.LneckList:
+          for dd in pars.densList:
+            for Rn in pars.RnList:
+              gotit = False
+              for Rdt in pars.RdtList:
+                xMax = 0.5*(Rn-Rdt)
+                for Rc in pars.RcList: 
+                  if Rc < Rn:
+                    if gotit:
+                      continue
+                    gotit=True
+                    Rc = Rn
+                  for nPit in pars.pitList:
+                    for dPit in pars.dPitList:
+                      if pars.asymmetricPDs:
+                        for Rn2 in pars.Rn2List:
+                          for Lneck2 in pars.Lneck2List:
+                            Rpit = 0.5*(Rn+Rn2) + distDict[nPit]*dPit
+                            if pars.computeClusterIncrease:
+                              pe = Peff_pitField_asym(pars.x,Rn,Rn2,pars.diff,Lpd,pars.Lcell,dd,ab[0],ab[1],Rdt,Rc,Lneck,Lneck2,Rpit,nPit)
+                            else: 
+                              pe = Peff_pitField_asym(pars.x,Rn,Rn2,pars.diff,Lpd,pars.Lcell,dd/nPit,ab[0],ab[1],Rdt,Rc,Lneck,Lneck2,Rpit,nPit)
+                            print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rn, Rn2, Rc, Rdt, Lpd, Lneck,Lneck2, dPit, pe]))
+                      else:
+                        Rpit = Rn + distDict[nPit]*dPit
+                        if pars.computeClusterIncrease:
+                          pe = Peff_pitField(pars.x,Rn,pars.diff,Lpd,pars.Lcell,dd,ab[0],ab[1],Rdt,Rc,Lneck,Rpit,nPit)
+                        else: 
+                          pe = Peff_pitField(pars.x,Rn,pars.diff,Lpd,pars.Lcell,dd/nPit,ab[0],ab[1],Rdt,Rc,Lneck,Rpit,nPit)
+                        if pars.printRn:
+                          print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rn, Rc, Rdt, Lpd, Lneck, dPit, pe]))
+                        else:
+                          print(pars.colSep.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rc, Rdt, Lpd, Lneck, dPit, pe]))
+                gotit = False
+          print("")
+
   outfile.close()
   sys.stdout = sys.__stdout__
   return
@@ -1101,14 +2057,24 @@ def  computePunitValues(pars):
               gotit=True
               Rc = Rn
             for Lneck in pars.LneckList:
-              pe = Punit(pars.x,Rn,pars.diff,Lpd,Rdt,Rc,Lneck)
-              if pars.compSubNano:
-                ## NOTE: computed for straight channel; Rc does not take any effect here. 
-                # peSN =  Peff_multiCyl_pitField(pars.x,xMax,pars.diff,Lpd,pars.Lcell,dd,ab[0],ab[1],Rdt,9,Rpit,nPit)
-                    #print('\t'.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rn, Rc, Lpd, dPit, pe,Rn_multiCyl(xMax,Rdt,9), peSN]))
-                continue
+              if pars.asymmetricPDs:
+                for Rn2 in pars.Rn2List:
+                  for Lneck2 in pars.Lneck2List:
+                    pe = PunitAsym(pars.x,Rn,Rn2,pars.diff,Lpd,Rdt,Rc,Lneck,Lneck2)
+                    if pars.compSubNano:
+                      continue
+                    else:
+                      xMax = 0.5*(min(Rn,Rn2)-Rdt)
+                      print(pars.colSep.join(str(s) for s in [pars.x,xMax, Rn, Rn2, Rc, Rdt, Lpd, Lneck,Lneck2,pe]))
               else:
-                print(pars.colSep.join(str(s) for s in [pars.x,xMax, Rn, Rc, Rdt, Lpd, Lneck,pe]))
+                pe = Punit(pars.x,Rn,pars.diff,Lpd,Rdt,Rc,Lneck)
+                if pars.compSubNano:
+                  ## NOTE: computed for straight channel; Rc does not take any effect here. 
+                  # peSN =  Peff_multiCyl_pitField(pars.x,xMax,pars.diff,Lpd,pars.Lcell,dd,ab[0],ab[1],Rdt,9,Rpit,nPit)
+                      #print('\t'.join(str(s) for s in [pars.x, dd*1e6, nPit, xMax, Rn, Rc, Lpd, dPit, pe,Rn_multiCyl(xMax,Rdt,9), peSN]))
+                  continue
+                else:
+                  print(pars.colSep.join(str(s) for s in [pars.x,xMax, Rn, Rc, Rdt, Lpd, Lneck,pe]))
       print("")
   outfile.close()
   sys.stdout = sys.__stdout__
